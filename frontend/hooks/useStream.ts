@@ -14,7 +14,7 @@ export function useStream() {
         console.log("BACKEND_URL is not set in .env file")
     }
 
-    const startStream = async (prompt: string, backendUrl: string = BackendUrl || "") => {
+    const startStream = async (prompt: string, backendUrl: string = `${BackendUrl}/prompt` || "") => {
         setIsStreaming(true);
         setData("");
         setError(null);

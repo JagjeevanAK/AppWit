@@ -1,5 +1,11 @@
 import { FileNode } from "@/components/file-tree";
 
+interface SandboxFile {
+  name: string;
+  type: "file" | "dir";
+  path: string;
+}
+
 export function findFileById(nodes: FileNode[], id: string): FileNode | null {
   for (const node of nodes) {
     if (node.id === id) {
@@ -11,25 +17,6 @@ export function findFileById(nodes: FileNode[], id: string): FileNode | null {
     }
   }
   return null;
-}
-
-export function updateFileContent(
-  nodes: FileNode[],
-  id: string,
-  content: string
-): FileNode[] {
-  return nodes.map((node) => {
-    if (node.id === id) {
-      return { ...node, content };
-    }
-    if (node.children) {
-      return {
-        ...node,
-        children: updateFileContent(node.children, id, content),
-      };
-    }
-    return node;
-  });
 }
 
 export function inferLanguage(filename: string): string {
@@ -53,102 +40,101 @@ export function inferLanguage(filename: string): string {
   return languageMap[ext || ""] || "plaintext";
 }
 
-export function getInitialFileTree(): FileNode[] {
-  return [
-    {
-      id: "src",
-      name: "src",
-      kind: "folder",
-      path: "src",
-      children: [
-        {
-          id: "app-tsx",
-          name: "App.tsx",
-          kind: "file",
-          path: "src/App.tsx",
-          content: `import React from 'react';
+export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string = '/home/user'): FileNode[] {
+  const tree: FileNode[] = [];
+  const pathMap = new Map<string, FileNode>();
 
-function App() {
-  return (
-    <div className="App">
-      <h1>Hello World</h1>
-      <p>Welcome to your code editor!</p>
-    </div>
-  );
-}
+  // Sort files to process directories first
+  const sortedFiles = [...files].sort((a, b) => {
+    if (a.type === 'dir' && b.type === 'file') return -1;
+    if (a.type === 'file' && b.type === 'dir') return 1;
+    return a.name.localeCompare(b.name);
+  });
 
-export default App;`,
-        },
-        {
-          id: "index-tsx",
-          name: "index.tsx",
-          kind: "file",
-          path: "src/index.tsx",
-          content: `import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+  for (const file of sortedFiles) {
+    const id = file.path.replace(/\//g, '-').replace(/^-/, '');
+    const node: FileNode = {
+      id,
+      name: file.name,
+      kind: file.type === 'dir' ? 'folder' : 'file',
+      path: file.path,
+      children: file.type === 'dir' ? [] : undefined,
+    };
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
+    pathMap.set(file.path, node);
 
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);`,
-        },
-        {
-          id: "utils",
-          name: "utils",
-          kind: "folder",
-          path: "src/utils",
-          children: [
-            {
-              id: "helpers-ts",
-              name: "helpers.ts",
-              kind: "file",
-              path: "src/utils/helpers.ts",
-              content: `export function formatDate(date: Date): string {
-  return date.toLocaleDateString();
-}
-
-export function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}`,
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: "package-json",
-      name: "package.json",
-      kind: "file",
-      path: "package.json",
-      content: `{
-  "name": "my-app",
-  "version": "1.0.0",
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    // Determine parent path
+    const parentPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    
+    if (parentPath === basePath || parentPath === '') {
+      // Root level file/folder
+      tree.push(node);
+    } else {
+      // Find parent and add as child
+      const parent = pathMap.get(parentPath);
+      if (parent && parent.children) {
+        parent.children.push(node);
+      }
+    }
   }
-}`,
-    },
-    {
-      id: "readme-md",
-      name: "README.md",
-      kind: "file",
-      path: "README.md",
-      content: `# My Project
 
-This is a sample project with a file tree explorer.
+  return tree;
+}
 
-## Features
-- File tree navigation
-- Code editing with Monaco Editor
-- Syntax highlighting
-`,
-    },
-  ];
+export async function fetchSandboxFileTree(
+  sandboxId: string,
+  listFilesFunc: (sandboxId: string, path: string) => Promise<SandboxFile[] | null>,
+  basePath: string = '/home/user'
+): Promise<FileNode[]> {
+  const allFiles: SandboxFile[] = [];
+  const dirsToProcess: string[] = [basePath];
+  const processedDirs = new Set<string>();
+
+  while (dirsToProcess.length > 0) {
+    const currentPath = dirsToProcess.shift()!;
+    
+    if (processedDirs.has(currentPath)) continue;
+    processedDirs.add(currentPath);
+
+    const files = await listFilesFunc(sandboxId, currentPath);
+    if (!files) continue;
+
+    for (const file of files) {
+      allFiles.push(file);
+      
+      if (file.type === 'dir') {
+        dirsToProcess.push(file.path);
+      }
+    }
+  }
+
+  return buildFileTreeFromSandbox(allFiles, basePath);
+}
+
+export async function loadFileContent(
+  sandboxId: string,
+  filePath: string,
+  readFileFunc: (sandboxId: string, path: string) => Promise<string | null>
+): Promise<string> {
+  const content = await readFileFunc(sandboxId, filePath);
+  return content || '// Unable to load file content';
+}
+
+export function updateFileNodeWithContent(
+  nodes: FileNode[],
+  id: string,
+  content: string
+): FileNode[] {
+  return nodes.map((node) => {
+    if (node.id === id) {
+      return { ...node, content };
+    }
+    if (node.children) {
+      return {
+        ...node,
+        children: updateFileNodeWithContent(node.children, id, content),
+      };
+    }
+    return node;
+  });
 }

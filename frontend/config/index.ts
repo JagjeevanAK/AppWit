@@ -1,1 +1,1 @@
-export const BackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000/prompt'
+export const BackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'

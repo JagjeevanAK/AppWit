@@ -1,14 +1,15 @@
 "use client"
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { X } from "lucide-react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import FileTree, { FileNode } from "@/components/file-tree";
-import { findFileById, updateFileContent, inferLanguage, getInitialFileTree } from "@/lib/file-utils";
+import { findFileById, inferLanguage, fetchSandboxFileTree, loadFileContent, updateFileNodeWithContent } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
 import EditorNav from "./editor-nav";
 import Preview from "./preview";
+import { useSandboxFiles } from "@/hooks/useSandboxFiles";
 
 interface CodeEditorProps {
   streamState: {
@@ -16,6 +17,7 @@ interface CodeEditorProps {
     isStreaming: boolean;
     error: string | null;
     sandboxUrl: string | null;
+    sandboxId: string | null;
     startStream: (prompt: string, backendUrl?: string) => Promise<void>;
     stopStream: () => void;
     resetStream: () => void;
@@ -23,21 +25,69 @@ interface CodeEditorProps {
 }
 
 export default function CodeEditor({ streamState }: CodeEditorProps) {
-  const [files, setFiles] = useState<FileNode[]>(getInitialFileTree());
-  const [openTabs, setOpenTabs] = useState<string[]>(["app-tsx"]);
-  const [activeFileId, setActiveFileId] = useState<string>("app-tsx");
+  const [files, setFiles] = useState<FileNode[]>([]);
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [activeFileId, setActiveFileId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
-  const { sandboxUrl, isStreaming } = streamState;
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const { sandboxUrl, sandboxId, isStreaming } = streamState;
+  const { listFiles, readFile } = useSandboxFiles();
+
+  // Helper to find first file in tree
+  const findFirstFile = useCallback((nodes: FileNode[]): FileNode | null => {
+    for (const node of nodes) {
+      if (node.kind === 'file') return node;
+      if (node.children) {
+        const found = findFirstFile(node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+
+  // Load sandbox files when sandboxId is available
+  useEffect(() => {
+    const loadSandboxFiles = async () => {
+      if (!sandboxId) return;
+      
+      setIsLoadingFiles(true);
+      try {
+        console.log('Loading files from sandbox:', sandboxId);
+        const fileTree = await fetchSandboxFileTree(sandboxId, listFiles);
+        
+        if (fileTree && fileTree.length > 0) {
+          setFiles(fileTree);
+          // Reset tabs and select first file
+          const firstFile = findFirstFile(fileTree);
+          if (firstFile) {
+            setOpenTabs([firstFile.id]);
+            setActiveFileId(firstFile.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading sandbox files:', error);
+      } finally {
+        setIsLoadingFiles(false);
+      }
+    };
+
+    loadSandboxFiles();
+  }, [sandboxId, listFiles, findFirstFile]);
 
   const activeFile = findFileById(files, activeFileId);
 
-  const handleFileSelect = (id: string) => {
+  const handleFileSelect = async (id: string) => {
     const file = findFileById(files, id);
     if (file && file.kind === "file") {
       if (!openTabs.includes(id)) {
         setOpenTabs([...openTabs, id]);
       }
       setActiveFileId(id);
+      
+      if (!file.content && sandboxId) {
+        const content = await loadFileContent(sandboxId, file.path, readFile);
+        setFiles(prevFiles => updateFileNodeWithContent(prevFiles, id, content));
+      }
     }
   };
 
@@ -56,12 +106,6 @@ export default function CodeEditor({ streamState }: CodeEditorProps) {
     }
   };
 
-  const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined && activeFileId) {
-      setFiles((prevFiles) => updateFileContent(prevFiles, activeFileId, value));
-    }
-  };
-
   return (
     <div className="h-full flex flex-col">
       <div className="w-full text-white px-2 pb-2">
@@ -76,11 +120,20 @@ export default function CodeEditor({ streamState }: CodeEditorProps) {
       >
         <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
           <div className="h-full flex flex-col bg-[#1D1D1D]">
-            <FileTree
-              nodes={files}
-              activeId={activeFileId}
-              onSelect={handleFileSelect}
-            />
+            {isLoadingFiles ? (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <div className="text-center space-y-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                  <p className="text-sm">Loading files...</p>
+                </div>
+              </div>
+            ) : (
+              <FileTree
+                nodes={files}
+                activeId={activeFileId}
+                onSelect={handleFileSelect}
+              />
+            )}
           </div>
         </ResizablePanel>
 
@@ -130,7 +183,6 @@ export default function CodeEditor({ streamState }: CodeEditorProps) {
                   theme="vs-dark"
                   language={inferLanguage(activeFile.name)}
                   value={activeFile.content || ""}
-                  onChange={handleEditorChange}
                   path={activeFile.path}
                   options={{
                     fontSize: 14,
