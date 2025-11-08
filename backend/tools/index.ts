@@ -68,3 +68,18 @@ export const readFile = {
         }
     },
 };
+
+export const listFiles = {
+    description: 'List all files in a directory to see what exists',
+    inputSchema: z.object({
+        path: z.string().describe('Directory path to list files from').default('/home/user'),
+    }),
+    execute: async ({ path, sandbox }: { path: string, sandbox: Sandbox }) => {
+        try {
+            const files = await sandbox.files.list(path);
+            return `Files in ${path}:\n${files.map(f => `- ${f.name}${f.type === 'dir' ? '/' : ''}`).join('\n')}`;
+        } catch (error) {
+            return `Error listing files: ${error}`;
+        }
+    },
+};
