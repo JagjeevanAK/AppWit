@@ -1,0 +1,20 @@
+{
+  "name": "lovable-e2b",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@openrouter/ai-sdk-provider": "^1.2.0",
+    "@types/express": "^5.0.3",
+    "ai": "^5.0.70",
+    "e2b": "^2.2.8",
+    "express": "^5.1.0",
+    "zod": "^4.1.12"
+  }
+}
