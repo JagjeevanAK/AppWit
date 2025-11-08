@@ -9,12 +9,14 @@ import { findFileById, updateFileContent, inferLanguage, getInitialFileTree } fr
 import { cn } from "@/lib/utils";
 import EditorNav from "./editor-nav";
 import Preview from "./preview";
+import { useStream } from "@/hooks/useStream";
 
 export default function CodeEditor() {
   const [files, setFiles] = useState<FileNode[]>(getInitialFileTree());
   const [openTabs, setOpenTabs] = useState<string[]>(["app-tsx"]);
   const [activeFileId, setActiveFileId] = useState<string>("app-tsx");
-  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('code');
+  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const { sandboxUrl, isStreaming } = useStream();
 
   const activeFile = findFileById(files, activeFileId);
 
@@ -55,7 +57,7 @@ export default function CodeEditor() {
         <EditorNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
       {activeTab === 'preview' ? (
-        <Preview />
+        <Preview preview_url={sandboxUrl} isStreaming={isStreaming} />
       ) : (
       <ResizablePanelGroup 
         direction="horizontal" 

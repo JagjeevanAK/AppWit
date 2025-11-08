@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import InputBox from "./inputbox";
 import MarkdownRenderer from "./markdown-render";
+import { useStream } from "@/hooks/useStream";
 
 interface Message {
     content: string;
@@ -12,18 +13,40 @@ interface Message {
 export default function ChatBar(){
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { data, isStreaming, error, startStream, resetStream  } = useStream();
+    const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
 
-    const handleSendMessage = (message: string) => {
+    const handleSendMessage = async (message: string) => {
         setMessages((prev) => [
             ...prev, 
-            { content: message, type: 'user' },
-            { content: "# Hello, Markdown!\n\nThis is **bold**, *italic*, and a [link](https://example.com).", type: 'response' }
+            { content: message, type: 'user' }
         ]);
+
+        setIsWaitingForResponse(true);
+
+        try {
+            await startStream(message);
+            
+            setIsWaitingForResponse(false);
+            
+            setTimeout(() => {
+                if (data) {
+                    setMessages((prev) => [
+                        ...prev,
+                        { content: data, type: 'response' }
+                    ]);
+                    resetStream();
+                }
+            }, 100);
+        } catch (err) {
+            console.error('Error starting stream:', err);
+            setIsWaitingForResponse(false);
+        }
     };
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, data]);
 
     return (
         <div className="h-full w-full bg-[#1D1D1D] pr-2 text-white flex flex-col">
@@ -49,6 +72,36 @@ export default function ChatBar(){
                         </div>
                     )
                 ))}
+                
+                {/* Show streaming response in real-time */}
+                {(isStreaming || isWaitingForResponse) && (
+                    <div className="flex justify-start">
+                        <div className="text-gray-300 p-4 max-w-[80%]">
+                            {data ? (
+                                <MarkdownRenderer markdown={data} />
+                            ) : (
+                                <div className="flex items-center space-x-2">
+                                    <div className="animate-pulse">Generating response...</div>
+                                    <div className="flex space-x-1">
+                                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Show error if exists */}
+                {error && !isStreaming && (
+                    <div className="flex justify-start">
+                        <div className="text-red-400 p-4 max-w-[80%] bg-red-900/20 rounded-lg">
+                            Error: {error}
+                        </div>
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
             <div className="shrink-0 p-2">
