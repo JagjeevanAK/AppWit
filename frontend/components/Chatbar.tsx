@@ -51,7 +51,9 @@ export default function ChatBar(){
                 ))}
                 <div ref={messagesEndRef} />
             </div>
-            <InputBox height="h-[12%]" maxHeight="10px" onSendMessage={handleSendMessage} />
+            <div className="shrink-0 p-2">
+                <InputBox onSendMessage={handleSendMessage} />
+            </div>
         </div>
     )
 }
