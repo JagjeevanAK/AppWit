@@ -16,13 +16,13 @@ router.get("/read-file", async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'path is required' });
         }
 
-        const sandbox = activeSandboxes.get(sandboxId);
+        const session = activeSandboxes.get(sandboxId);
         
-        if (!sandbox) {
+        if (!session) {
             return res.status(404).json({ error: 'Sandbox not found or expired' });
         }
 
-        const content = await sandbox.files.read(path);
+        const content = await session.sandbox.files.read(path);
         
         res.json({ 
             success: true, 
@@ -46,18 +46,18 @@ router.get("/list-files", async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'sandboxId is required' });
         }
 
-        const sandbox = activeSandboxes.get(sandboxId);
+        const session = activeSandboxes.get(sandboxId);
         
-        if (!sandbox) {
+        if (!session) {
             return res.status(404).json({ error: 'Sandbox not found or expired' });
         }
 
-        const files = await sandbox.files.list(typeof path === 'string' ? path : '/home/user');
+        const files = await session.sandbox.files.list(typeof path === 'string' ? path : '/home/user');
         
         res.json({ 
             success: true, 
             path,
-            files: files.map(f => ({
+            files: files.map((f: { name: string; type: string }) => ({
                 name: f.name,
                 type: f.type,
                 path: `${path}/${f.name}`

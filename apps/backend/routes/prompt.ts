@@ -3,7 +3,9 @@ import type { Request, Response } from "express";
 import { Sandbox } from "e2b";
 import { HumanMessage, AIMessage, ToolMessage, SystemMessage, BaseMessage } from "@langchain/core/messages";
 import { createAgentGraph, type AgentGraph } from "../agent/graph";
+import { streamMultiAgentOrchestrator, type WorkerEvent } from "../agent/orchestrator";
 import { SYSTEM_PROMPT } from "../agent/systemPrompt";
+import type { Plan } from "../agent/types";
 
 const router = Router();
 
@@ -15,12 +17,13 @@ interface SandboxSession {
     graph: AgentGraph;
     messages: BaseMessage[];
     sandboxUrl: string;
+    plan?: Plan;
 }
 
 export const activeSandboxes = new Map<string, SandboxSession>();
 
 router.post("/", async (req: Request, res: Response) => {
-    const { prompt } = req.body;
+    const { prompt, useMultiAgent = true } = req.body;
 
     try {
         if (!TEMPLATE_ID || !SANDBOX_PORT) {
@@ -51,63 +54,74 @@ router.post("/", async (req: Request, res: Response) => {
         res.setHeader('X-Sandbox-URL', sandboxUrl);
         res.setHeader('X-Sandbox-ID', sandboxId);
 
-        const userMessage = new HumanMessage(prompt);
         const session = activeSandboxes.get(sandboxId)!;
-        session.messages.push(userMessage);
 
-        try {
-            const stream = await graph.stream(
-                { messages: session.messages },
-                { streamMode: "messages" }
-            );
-
-            let fullResponse = '';
-            let lastAIMessage: AIMessage | null = null;
-
-            for await (const event of stream) {
-                const [message, metadata] = event;
-                
-                if (AIMessage.isInstance(message)) {
-                    lastAIMessage = message;
+        if (useMultiAgent) {
+            try {
+                for await (const event of streamMultiAgentOrchestrator(sandbox, prompt)) {
+                    res.write(`data: ${JSON.stringify(event)}\n\n`);
                     
-                    if (message.content && typeof message.content === 'string') {
-                        const chunk = message.content;
-                        if (chunk) {
-                            fullResponse += chunk;
-                            res.write(`data: ${JSON.stringify({ type: 'text', content: chunk })}\n\n`);
-                        }
-                    }
-                    
-                    if (message.tool_calls && message.tool_calls.length > 0) {
-                        for (const toolCall of message.tool_calls) {
-                            res.write(`data: ${JSON.stringify({ 
-                                type: 'tool_call', 
-                                name: toolCall.name, 
-                                args: toolCall.args 
-                            })}\n\n`);
-                        }
+                    if (event.type === 'plan' && event.plan) {
+                        session.plan = event.plan;
                     }
                 }
-                
-                if (ToolMessage.isInstance(message)) {
-                    res.write(`data: ${JSON.stringify({ 
-                        type: 'tool_result', 
-                        name: message.name,
-                        content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
-                    })}\n\n`);
-                }
+
+                res.write(`data: ${JSON.stringify({ type: 'done', sandboxUrl, sandboxId })}\n\n`);
+                res.end();
+            } catch (orchestratorError) {
+                console.error('Error during multi-agent orchestration:', orchestratorError);
+                res.write(`data: ${JSON.stringify({ type: 'error', message: 'Orchestration error occurred' })}\n\n`);
+                res.end();
             }
+        } else {
+            const userMessage = new HumanMessage(prompt);
+            session.messages.push(userMessage);
 
-            const finalResult = await graph.invoke({ messages: session.messages });
-            session.messages = finalResult.messages;
+            try {
+                const stream = await graph.stream(
+                    { messages: session.messages },
+                    { streamMode: "messages" }
+                );
 
-            res.write(`data: ${JSON.stringify({ type: 'done', sandboxUrl, sandboxId })}\n\n`);
-            res.end();
+                for await (const event of stream) {
+                    const [message, metadata] = event;
+                    
+                    if (AIMessage.isInstance(message)) {
+                        if (message.content && typeof message.content === 'string') {
+                            res.write(`data: ${JSON.stringify({ type: 'text', content: message.content })}\n\n`);
+                        }
+                        
+                        if (message.tool_calls && message.tool_calls.length > 0) {
+                            for (const toolCall of message.tool_calls) {
+                                res.write(`data: ${JSON.stringify({ 
+                                    type: 'tool_call', 
+                                    name: toolCall.name, 
+                                    args: toolCall.args 
+                                })}\n\n`);
+                            }
+                        }
+                    }
+                    
+                    if (ToolMessage.isInstance(message)) {
+                        res.write(`data: ${JSON.stringify({ 
+                            type: 'tool_result', 
+                            name: message.name,
+                            content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+                        })}\n\n`);
+                    }
+                }
 
-        } catch (streamError) {
-            console.error('Error during streaming:', streamError);
-            res.write(`data: ${JSON.stringify({ type: 'error', message: 'Stream error occurred' })}\n\n`);
-            res.end();
+                const finalResult = await graph.invoke({ messages: session.messages });
+                session.messages = finalResult.messages;
+
+                res.write(`data: ${JSON.stringify({ type: 'done', sandboxUrl, sandboxId })}\n\n`);
+                res.end();
+
+            } catch (streamError) {
+                console.error('Error during streaming:', streamError);
+                res.write(`data: ${JSON.stringify({ type: 'error', message: 'Stream error occurred' })}\n\n`);
+                res.end();
+            }
         }
 
     } catch (error) {
