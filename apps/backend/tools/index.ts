@@ -1,85 +1,123 @@
+import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { Sandbox } from "e2b";
+import type { Sandbox } from "e2b";
 
-export const createFile = {
-    description: 'Create a file at a certain directory',
-    inputSchema: z.object({
-        location: z
-            .string()
-            .describe('Relative path to the file'),
-        content: z
-            .string()
-            .describe('Content of the file')
-            .optional()
-            .default('')
-    }),
-    execute: async ({ location, content, sandbox }: { location: string, content?: string, sandbox: Sandbox }) => {
-        try {
-            await sandbox.files.write(location, content || '');
-            return `File created successfully at ${location}`;
-        } catch (error) {
-            return `Error creating file: ${error}`;
+export function createSandboxTools(sandbox: Sandbox) {
+    const createFileTool = tool(
+        async ({ location, content }) => {
+            try {
+                await sandbox.files.write(location, content || '');
+                return `File created successfully at ${location}`;
+            } catch (error) {
+                return `Error creating file: ${error}`;
+            }
+        },
+        {
+            name: "createFile",
+            description: "Create a NEW file that doesn't exist yet at a certain directory path",
+            schema: z.object({
+                location: z.string().describe('Absolute path to the file (e.g., /home/user/src/components/Button.tsx)'),
+                content: z.string().optional().default('').describe('Content of the file')
+            }),
         }
+    );
+
+    const updateFileTool = tool(
+        async ({ location, content }) => {
+            try {
+                await sandbox.files.write(location, content);
+                return `File updated successfully at ${location}`;
+            } catch (error) {
+                return `Error updating file: ${error}`;
+            }
+        },
+        {
+            name: "updateFile",
+            description: "Update an EXISTING file at a certain directory path. Use this to modify existing files like App.tsx",
+            schema: z.object({
+                location: z.string().describe('Absolute path to the file to update'),
+                content: z.string().describe('New content of the file'),
+            }),
+        }
+    );
+
+    const deleteFileTool = tool(
+        async ({ location }) => {
+            try {
+                await sandbox.files.remove(location);
+                return `File deleted successfully at ${location}`;
+            } catch (error) {
+                return `Error deleting file: ${error}`;
+            }
+        },
+        {
+            name: "deleteFile",
+            description: "Delete a file at a certain directory path",
+            schema: z.object({
+                location: z.string().describe('Absolute path to the file to delete'),
+            }),
+        }
+    );
+
+    const readFileTool = tool(
+        async ({ location }) => {
+            try {
+                const content = await sandbox.files.read(location);
+                return content;
+            } catch (error) {
+                return `Error reading file: ${error}`;
+            }
+        },
+        {
+            name: "readFile",
+            description: "Read the contents of a file at a certain directory path",
+            schema: z.object({
+                location: z.string().describe('Absolute path to the file to read'),
+            }),
+        }
+    );
+
+    const listFilesTool = tool(
+        async ({ path }) => {
+            try {
+                const files = await sandbox.files.list(path);
+                return `Files in ${path}:\n${files.map(f => `- ${f.name}${f.type === 'dir' ? '/' : ''}`).join('\n')}`;
+            } catch (error) {
+                return `Error listing files: ${error}`;
+            }
+        },
+        {
+            name: "listFiles",
+            description: "List all files in a directory to see what exists",
+            schema: z.object({
+                path: z.string().default('/home/user').describe('Directory path to list files from'),
+            }),
+        }
+    );
+
+    return [createFileTool, updateFileTool, deleteFileTool, readFileTool, listFilesTool];
+}
+
+export const toolDefinitions = {
+    createFile: {
+        name: "createFile",
+        description: "Create a NEW file that doesn't exist yet at a certain directory path",
+    },
+    updateFile: {
+        name: "updateFile", 
+        description: "Update an EXISTING file at a certain directory path",
+    },
+    deleteFile: {
+        name: "deleteFile",
+        description: "Delete a file at a certain directory path",
+    },
+    readFile: {
+        name: "readFile",
+        description: "Read the contents of a file at a certain directory path",
+    },
+    listFiles: {
+        name: "listFiles",
+        description: "List all files in a directory to see what exists",
     },
 };
 
-export const updateFile = {
-    description: 'Update a file at a certain directory',
-    inputSchema: z.object({
-        location: z.string().describe('Relative path to the file'),
-        content: z.string().describe('Content of the file'),
-    }),
-    execute: async ({ location, content, sandbox }: { location: string, content: string, sandbox: Sandbox }) => {
-        try {
-            await sandbox.files.write(location, content);
-            return `File updated successfully at ${location}`;
-        } catch (error) {
-            return `Error updating file: ${error}`;
-        }
-    },
-};
-
-export const deleteFile = {
-    description: 'Delete a file at a certain directory',
-    inputSchema: z.object({
-        location: z.string().describe('Relative path to the file'),
-    }),
-    execute: async ({ location, sandbox }: { location: string, sandbox: Sandbox }) => {
-        try {
-            await sandbox.files.remove(location);
-            return `File deleted successfully at ${location}`;
-        } catch (error) {
-            return `Error deleting file: ${error}`;
-        }
-    },
-};
-
-export const readFile = {
-    description: 'Read a file at a certain directory',
-    inputSchema: z.object({
-        location: z.string().describe('Relative path to the file'),
-    }),
-    execute: async ({ location, sandbox }: { location: string, sandbox: Sandbox }) => {
-        try {
-            const content = await sandbox.files.read(location);
-            return content;
-        } catch (error) {
-            return `Error reading file: ${error}`;
-        }
-    },
-};
-
-export const listFiles = {
-    description: 'List all files in a directory to see what exists',
-    inputSchema: z.object({
-        path: z.string().describe('Directory path to list files from').default('/home/user'),
-    }),
-    execute: async ({ path, sandbox }: { path: string, sandbox: Sandbox }) => {
-        try {
-            const files = await sandbox.files.list(path);
-            return `Files in ${path}:\n${files.map(f => `- ${f.name}${f.type === 'dir' ? '/' : ''}`).join('\n')}`;
-        } catch (error) {
-            return `Error listing files: ${error}`;
-        }
-    },
-};
