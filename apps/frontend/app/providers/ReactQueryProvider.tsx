@@ -9,7 +9,6 @@ export default function ReactQueryProvider({
 }: {
     children: React.ReactNode;
 }) {
-    // ensures a new QueryClient is not created on every render
     const [client] = useState(() => new QueryClient());
 
     return (

@@ -35,7 +35,7 @@ export interface FileChange {
     content?: string;
 }
 
-export function useStream() {
+export function useStream(projectId: string) {
     const [data, setData] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function useStream() {
     const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
     const abortController = useRef<AbortController | null>(null);
 
-    if(!BackendUrl){
+    if (!BackendUrl) {
         console.log("BACKEND_URL is not set in .env file")
     }
 
@@ -61,10 +61,10 @@ export function useStream() {
     const processToolCall = (name: string, args: Record<string, unknown>) => {
         const fileOps = ['createFile', 'updateFile', 'deleteFile'];
         if (fileOps.includes(name) && args.location) {
-            const action = name === 'createFile' ? 'create' 
-                : name === 'updateFile' ? 'update' 
-                : 'delete';
-            
+            const action = name === 'createFile' ? 'create'
+                : name === 'updateFile' ? 'update'
+                    : 'delete';
+
             setFileChanges(prev => [...prev, {
                 action: action as FileChange['action'],
                 path: args.location as string,
@@ -83,11 +83,17 @@ export function useStream() {
         try {
             abortController.current = new AbortController();
 
+            const token = localStorage.getItem("auth_token");
+            if (!token) {
+                throw new Error("Not authenticated");
+            }
+
             const response = await fetch(backendUrl, {
                 method: "POST",
-                body: JSON.stringify({ prompt }),
+                body: JSON.stringify({ prompt, projectId }),
                 headers: {
                     "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
                 },
                 signal: abortController.current.signal,
             });
@@ -98,7 +104,7 @@ export function useStream() {
 
             const sandboxUrlHeader = response.headers.get("X-Sandbox-URL");
             const sandboxIdHeader = response.headers.get("X-Sandbox-ID");
-            
+
             if (sandboxUrlHeader) {
                 setSandboxUrl(sandboxUrlHeader);
             } else {
@@ -123,7 +129,7 @@ export function useStream() {
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
@@ -223,7 +229,7 @@ export function useStream() {
 
             const sandboxUrlHeader = response.headers.get("X-Sandbox-URL");
             const sandboxIdHeader = response.headers.get("X-Sandbox-ID");
-            
+
             if (sandboxUrlHeader) setSandboxUrl(sandboxUrlHeader);
             if (sandboxIdHeader) setSandboxId(sandboxIdHeader);
 
@@ -240,7 +246,7 @@ export function useStream() {
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
-                
+
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
