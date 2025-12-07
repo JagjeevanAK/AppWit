@@ -2,6 +2,7 @@
 
 import InputBox from "@/components/inputbox";
 import AnimatedBackground from "@/components/animated-background";
+import { ProjectsList } from "@/components/projects-list";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -20,7 +21,7 @@ export default function Home() {
     };
 
     return (
-        <div className="relative flex items-center h-screen justify-center flex-col text-white overflow-hidden">
+        <div className="relative flex items-center min-h-screen justify-center flex-col text-white overflow-hidden py-12">
             <AnimatedBackground />
             <div className="z-10 w-full max-w-2xl px-4 flex flex-col items-center gap-8">
                 <div className="space-y-2 text-center">
@@ -58,6 +59,9 @@ export default function Home() {
                         </button>
                     ))}
                 </div>
+
+                {/* Show projects list for logged in users */}
+                {user && <ProjectsList />}
             </div>
         </div>
     )
