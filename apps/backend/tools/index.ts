@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import type { Sandbox } from "e2b";
+import { getThemeList, getThemeCSS, type ThemeInfo } from "../data/themes";
 
 export function createSandboxTools(sandbox: Sandbox) {
     const createFileTool = tool(
@@ -129,7 +130,63 @@ export function createSandboxTools(sandbox: Sandbox) {
         }
     );
 
-    return [createFileTool, updateFileTool, deleteFileTool, readFileTool, listFilesTool, runCommandTool];
+    const getThemeInfoTool = tool(
+        async () => {
+            try {
+                const themeList = getThemeList();
+                console.log(`[TOOL] getThemeInfo: listing ${themeList.length} themes`);
+
+                const formattedList = themeList.map((theme: ThemeInfo) =>
+                    `- **${theme.name}** (${theme.name.toLowerCase().replace(/\s+/g, '-')}): ${theme.description}\n  Best for: ${theme.bestFor.join(', ')}`
+                ).join('\n\n');
+
+                return `Available shadcn themes:\n\n${formattedList}\n\nUSAGE: Call getTheme with the theme name to get the CSS content, then paste it into /home/user/src/index.css`;
+            } catch (error) {
+                console.error(`[TOOL] getThemeInfo ERROR: ${error}`);
+                return `Error getting theme info: ${error}`;
+            }
+        },
+        {
+            name: "getThemeInfo",
+            description: "Get a list of all available pre-built shadcn themes with descriptions. Use this FIRST to choose the right theme for the project, then call getTheme to get the CSS.",
+            schema: z.object({}),
+        }
+    );
+
+    const getThemeTool = tool(
+        async ({ themeName }) => {
+            try {
+                const css = getThemeCSS(themeName);
+                if (!css) {
+                    const availableThemes = getThemeList().map(t => t.name.toLowerCase().replace(/\s+/g, '-')).join(', ');
+                    return `Theme "${themeName}" not found. Available themes: ${availableThemes}`;
+                }
+                console.log(`[TOOL] getTheme: ${themeName}`);
+                return css;
+            } catch (error) {
+                console.error(`[TOOL] getTheme ERROR: ${error}`);
+                return `Error getting theme: ${error}`;
+            }
+        },
+        {
+            name: "getTheme",
+            description: "Get the CSS content for a specific theme. Use this to download a theme, then paste the entire CSS into /home/user/src/index.css to apply it. ALWAYS add '@import \"tailwindcss\";' at the TOP of index.css before the theme CSS.",
+            schema: z.object({
+                themeName: z.string().describe('Theme name (e.g., "vercel", "darkmatter", "twitter", "caffeine", "claymorphism", "graphite", "mocha-mousse", "elegant-luxury", "sage-garden", "amethyst-haze")'),
+            }),
+        }
+    );
+
+    return [
+        createFileTool,
+        updateFileTool,
+        deleteFileTool,
+        readFileTool,
+        listFilesTool,
+        runCommandTool,
+        getThemeInfoTool,
+        getThemeTool
+    ];
 }
 
 export const toolDefinitions = {
@@ -138,7 +195,7 @@ export const toolDefinitions = {
         description: "Create a NEW file that doesn't exist yet at a certain directory path",
     },
     updateFile: {
-        name: "updateFile", 
+        name: "updateFile",
         description: "Update an EXISTING file at a certain directory path",
     },
     deleteFile: {
@@ -157,5 +214,12 @@ export const toolDefinitions = {
         name: "runCommand",
         description: "Run a terminal command in the sandbox environment",
     },
+    getThemeInfo: {
+        name: "getThemeInfo",
+        description: "Get list of available pre-built shadcn themes with descriptions and use cases",
+    },
+    getTheme: {
+        name: "getTheme",
+        description: "Get the CSS content for a specific theme to apply to index.css",
+    },
 };
-
