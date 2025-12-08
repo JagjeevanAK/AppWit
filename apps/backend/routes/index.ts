@@ -34,14 +34,34 @@ router.post("/prompt/notify-leaving/:sandboxId", async (req, res) => {
         return res.status(400).json({ error: 'Session missing projectId or userId' });
     }
 
-    // Import scheduleShutdown dynamically to avoid circular deps
-    const { scheduleShutdown } = await import("./prompt");
-    scheduleShutdown(sandboxId, projectId, userId);
+    // Import scheduleShutdown from shutdown module
+    const { scheduleShutdown } = await import("./shutdown");
+    await scheduleShutdown(sandboxId, projectId, userId);
 
     res.json({
         success: true,
         message: `Sandbox shutdown scheduled`,
     });
+});
+
+// Public route for tab visibility changes (sendBeacon can't send auth headers)
+router.post("/prompt/visibility/:sandboxId", async (req, res) => {
+    const sandboxId = req.params.sandboxId;
+    const { isHidden } = req.body as { isHidden?: boolean };
+
+    console.log(`[VISIBILITY] Received for sandbox ${sandboxId}, hidden: ${isHidden}`);
+
+    const session = activeSandboxes.get(sandboxId);
+    if (!session) {
+        console.log(`[VISIBILITY] Session not found for ${sandboxId}`);
+        return res.status(404).json({ error: 'Sandbox session not found' });
+    }
+
+    // Import and call visibility handler directly
+    const { handleTabVisibilityChange } = await import("./shutdown");
+    handleTabVisibilityChange(sandboxId, isHidden === true);
+
+    res.json({ success: true });
 });
 
 // Protected routes

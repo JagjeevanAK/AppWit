@@ -1,51 +1,22 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { Sandbox } from "e2b";
-import { HumanMessage, AIMessage, ToolMessage, SystemMessage, BaseMessage } from "@langchain/core/messages";
-import { streamMultiAgentOrchestrator, type StreamEvent } from "../agent/orchestrator";
+import { HumanMessage, AIMessage, SystemMessage, ToolMessage, BaseMessage } from "@langchain/core/messages";
+import { streamMultiAgentOrchestrator } from "../agent/orchestrator";
 import { INITIAL_SYSTEM_PROMPT, CONTEXT_SYSTEM_PROMPT } from "../agent/systemPrompt";
-import type { Plan } from "../agent/types";
 import { prisma } from "../lib/prisma";
 import { MessageRole } from "../generated/prisma/client";
 import type { AuthRequest } from "../middleware/auth";
 import { initializeR2ForSandbox, backupProject, isR2Configured, ensureR2Mounted } from "../lib/r2";
+import { activeSandboxes, pendingShutdowns, SHUTDOWN_DELAY_MS } from "./session";
+import { scheduleShutdown, cancelPendingShutdown } from "./shutdown";
+export { activeSandboxes } from "./session";
 
 const router = Router();
 
 const TEMPLATE_ID = process.env.TEMPLATE_ID;
 const SANDBOX_PORT = process.env.SANDBOX_PORT;
 
-interface SandboxSession {
-    sandbox: Sandbox;
-    messages: BaseMessage[];
-    sandboxUrl: string;
-    plan?: Plan;
-    projectId?: string;
-    chatId?: string;
-    userId?: string;
-}
-
-export const activeSandboxes = new Map<string, SandboxSession>();
-
-interface PendingShutdown {
-    timeoutId: NodeJS.Timeout;
-    scheduledAt: Date;
-    projectId: string;
-    userId: string;
-}
-
-const pendingShutdowns = new Map<string, PendingShutdown>();
-const SHUTDOWN_DELAY_MS = 1 * 60 * 1000;
-
-function extractSummary(content: string): { cleanContent: string; summary: string | null } {
-    const summaryMatch = content.match(/\[SUMMARY:\s*(.+?)\]/i);
-    if (summaryMatch?.[1]) {
-        const summary = summaryMatch[1].trim();
-        const cleanContent = content.replace(/\[SUMMARY:\s*.+?\]/i, '').trim();
-        return { cleanContent, summary };
-    }
-    return { cleanContent: content, summary: null };
-}
 
 async function getOrCreateChat(projectId: string): Promise<string> {
     let chat = await prisma.chat.findFirst({
@@ -103,94 +74,8 @@ async function getChatHistory(chatId: string, limit: number = 10): Promise<BaseM
     });
 }
 
-// Cancel a pending shutdown for a sandbox (called when user returns)
-function cancelPendingShutdown(sandboxId: string): boolean {
-    const pending = pendingShutdowns.get(sandboxId);
-    if (pending) {
-        clearTimeout(pending.timeoutId);
-        pendingShutdowns.delete(sandboxId);
-        console.log(`[SHUTDOWN] Cancelled pending shutdown for sandbox ${sandboxId}`);
-        return true;
-    }
-    return false;
-}
 
-// Schedule a delayed shutdown with R2 backup
-export function scheduleShutdown(sandboxId: string, projectId: string, userId: string): void {
-    // Cancel any existing pending shutdown first
-    cancelPendingShutdown(sandboxId);
-
-    const timeoutId = setTimeout(async () => {
-        await performShutdownWithBackup(sandboxId);
-    }, SHUTDOWN_DELAY_MS);
-
-    pendingShutdowns.set(sandboxId, {
-        timeoutId,
-        scheduledAt: new Date(),
-        projectId,
-        userId
-    });
-
-    console.log(`[SHUTDOWN] Scheduled shutdown for sandbox ${sandboxId} in ${SHUTDOWN_DELAY_MS / 1000}s`);
-}
-
-// Perform backup and shutdown
-async function performShutdownWithBackup(sandboxId: string): Promise<void> {
-    const session = activeSandboxes.get(sandboxId);
-    const pending = pendingShutdowns.get(sandboxId);
-
-    if (!session) {
-        console.log(`[SHUTDOWN] Session ${sandboxId} not found, skipping`);
-        pendingShutdowns.delete(sandboxId);
-        return;
-    }
-
-    const projectId = session.projectId || pending?.projectId;
-    const userId = session.userId || pending?.userId;
-
-    console.log(`[SHUTDOWN] Executing scheduled shutdown for sandbox ${sandboxId}`);
-
-    try {
-        // Perform R2 backup if configured
-        if (userId && projectId && isR2Configured()) {
-            console.log(`[SHUTDOWN] Preparing to backup project ${projectId}`);
-
-            // Ensure R2 is still mounted (may have become stale)
-            const mountReady = await ensureR2Mounted(session.sandbox);
-            if (!mountReady) {
-                console.error(`[SHUTDOWN] ✗ Cannot backup - R2 mount not available`);
-            } else {
-                console.log(`[SHUTDOWN] Backing up project ${projectId} before scheduled termination`);
-                const backed = await backupProject(session.sandbox, userId, projectId);
-
-                if (backed) {
-                    // Update project with R2 backup path
-                    const r2BackupPath = `/${userId}/${projectId}/`;
-                    await prisma.project.update({
-                        where: { id: projectId },
-                        data: {
-                            r2BackupPath,
-                            lastBackupAt: new Date()
-                        }
-                    });
-                    console.log(`[SHUTDOWN] ✓ Project ${projectId} backed up to ${r2BackupPath}`);
-                } else {
-                    console.error(`[SHUTDOWN] ✗ Failed to backup project ${projectId}`);
-                }
-            }
-        }
-
-        // Kill the sandbox
-        await session.sandbox.kill();
-        console.log(`[SHUTDOWN] Sandbox ${sandboxId} killed successfully`);
-    } catch (error) {
-        console.error(`[SHUTDOWN] Error during shutdown of ${sandboxId}:`, error);
-    } finally {
-        // Cleanup
-        activeSandboxes.delete(sandboxId);
-        pendingShutdowns.delete(sandboxId);
-    }
-}
+// Routes start here
 
 router.post("/", async (req: AuthRequest, res: Response) => {
     const { prompt, projectId, useMultiAgent = true } = req.body;
@@ -289,6 +174,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         const session = activeSandboxes.get(sandboxId)!;
 
         try {
+            // Mark session as streaming
+            session.isStreaming = true;
+
             // Use INITIAL prompt for first message, CONTEXT prompt for subsequent
             const systemPromptToUse = isFirst ? INITIAL_SYSTEM_PROMPT : CONTEXT_SYSTEM_PROMPT;
             console.log(`Using ${isFirst ? 'INITIAL' : 'CONTEXT'} system prompt for orchestrator`);
@@ -296,6 +184,9 @@ router.post("/", async (req: AuthRequest, res: Response) => {
             for await (const event of streamMultiAgentOrchestrator(sandbox, prompt, systemPromptToUse)) {
                 res.write(`data: ${JSON.stringify(event)}\n\n`);
             }
+
+            // Mark streaming as complete
+            session.isStreaming = false;
 
             // Save assistant response to database
             if (session.chatId) {
@@ -306,6 +197,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
             res.write(`data: ${JSON.stringify({ type: 'done', sandboxUrl, sandboxId })}\n\n`);
             res.end();
         } catch (orchestratorError) {
+            session.isStreaming = false;
             console.error('Error during orchestration:', orchestratorError);
             res.write(`data: ${JSON.stringify({ type: 'error', message: 'Orchestration error occurred' })}\n\n`);
             res.end();
@@ -347,10 +239,16 @@ router.post("/continue", async (req: AuthRequest, res: Response) => {
         console.log(`[Continue] Continuing conversation in sandbox ${sandboxId}`);
 
         try {
+            // Mark session as streaming
+            session.isStreaming = true;
+
             // Use CONTEXT_SYSTEM_PROMPT for iterative changes
             for await (const event of streamMultiAgentOrchestrator(session.sandbox, prompt, CONTEXT_SYSTEM_PROMPT)) {
                 res.write(`data: ${JSON.stringify(event)}\n\n`);
             }
+
+            // Mark streaming as complete
+            session.isStreaming = false;
 
             // Save assistant response to database
             if (session.chatId) {
@@ -362,6 +260,7 @@ router.post("/continue", async (req: AuthRequest, res: Response) => {
             res.end();
 
         } catch (streamError) {
+            session.isStreaming = false;
             console.error('Error during orchestration:', streamError);
             res.write(`data: ${JSON.stringify({ type: 'error', message: 'Orchestration error occurred' })}\n\n`);
             res.end();
@@ -469,6 +368,29 @@ router.post("/load/:projectId", async (req: AuthRequest, res: Response) => {
             restored = result.restored;
             if (result.mounted) {
                 console.log(`[LOAD] R2 initialized${restored ? ', project restored from backup' : ', no backup to restore'}`);
+            }
+
+            // If restored, run npm install to reinstall dependencies
+            if (restored) {
+                console.log(`[LOAD] Running npm install to restore dependencies...`);
+                try {
+                    // Use npm install (more reliable than npm ci for various scenarios)
+                    // Pipe through tail to limit output but still capture enough for debugging
+                    const npmResult = await sandbox.commands.run(
+                        'cd /home/user && npm install --legacy-peer-deps 2>&1',
+                        { timeoutMs: 180000 }
+                    );
+
+                    if (npmResult.exitCode === 0) {
+                        console.log(`[LOAD] ✓ Dependencies installed successfully`);
+                    } else {
+                        console.error(`[LOAD] ✗ npm install failed with exit code ${npmResult.exitCode}`);
+                        console.error(`[LOAD] stdout:`, npmResult.stdout.slice(-500));
+                        console.error(`[LOAD] stderr:`, npmResult.stderr.slice(-500));
+                    }
+                } catch (npmError) {
+                    console.error(`[LOAD] Error running npm install:`, npmError);
+                }
             }
         }
 

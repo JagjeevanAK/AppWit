@@ -36,6 +36,19 @@ export default function ProjectPage() {
     useEffect(() => {
         const pendingPrompt = localStorage.getItem('pendingPrompt');
 
+        console.log('[PAGE] useEffect triggered:', {
+            pendingPrompt: !!pendingPrompt,
+            projectId,
+            r2BackupPath: project?.r2BackupPath,
+            loading,
+            hasLoaded: hasLoadedExistingProject.current
+        });
+
+        // Wait for project data to load
+        if (loading) {
+            return;
+        }
+
         if (pendingPrompt) {
             // NEW project with a prompt - let ChatBar handle the streaming
             setInitialPrompt(pendingPrompt);
@@ -44,12 +57,14 @@ export default function ProjectPage() {
             setLoadingStatus("Building your application...");
         } else if (!hasLoadedExistingProject.current && projectId && project?.r2BackupPath) {
             // EXISTING project with R2 backup - load from R2
+            console.log('[PAGE] Loading existing project from R2:', project.r2BackupPath);
             hasLoadedExistingProject.current = true;
             setLoadingStatus("Restoring your project...");
 
             const loadProject = async () => {
                 try {
                     const token = localStorage.getItem('auth_token');
+                    console.log('[PAGE] Calling /prompt/load/', projectId);
                     const response = await fetch(`${BackendUrl}/prompt/load/${projectId}`, {
                         method: 'POST',
                         headers: {
@@ -65,7 +80,7 @@ export default function ProjectPage() {
                             streamState.setSandbox(data.sandboxUrl, data.sandboxId);
                         }
                     } else {
-                        console.error('[PAGE] Failed to load project');
+                        console.error('[PAGE] Failed to load project:', response.status);
                     }
                 } catch (err) {
                     console.error('[PAGE] Error loading project:', err);
@@ -77,10 +92,12 @@ export default function ProjectPage() {
         } else if (!hasLoadedExistingProject.current && projectId && !project?.r2BackupPath) {
             // EXISTING project without R2 backup - just show the editor
             // (This is for projects that were created but user left before backup)
+            console.log('[PAGE] Project has no R2 backup, showing empty editor');
             hasLoadedExistingProject.current = true;
             setIsInitialOrchestrationComplete(true);
         }
-    }, [projectId, project?.r2BackupPath, streamState]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId, project, loading]);
 
     // Mark initial orchestration as complete when streaming finishes
     useEffect(() => {
@@ -140,14 +157,40 @@ export default function ProjectPage() {
         };
 
         // Only use pagehide/beforeunload for tab/browser close
-        // Don't use visibilitychange as it's too aggressive (fires on tab switch)
         window.addEventListener('pagehide', notifyLeaving);
         window.addEventListener('beforeunload', notifyLeaving);
+
+        // Track tab visibility changes - notify backend when tab is hidden
+        const handleVisibilityChange = () => {
+            const currentSandboxId = (window as any).__currentSandboxId;
+            if (!currentSandboxId) {
+                console.log('[PAGE] No sandboxId for visibility change, skipping');
+                return;
+            }
+            const isHidden = document.visibilityState === 'hidden';
+            const visibilityUrl = `${BackendUrl}/prompt/visibility/${currentSandboxId}`;
+
+            // Use sendBeacon for hidden, fetch for visible (because we need to cancel timer)
+            if (isHidden) {
+                console.log('[PAGE] Tab hidden, notifying backend');
+                const blob = new Blob([JSON.stringify({ isHidden: true })], { type: 'application/json' });
+                navigator.sendBeacon(visibilityUrl, blob);
+            } else {
+                console.log('[PAGE] Tab visible, notifying backend');
+                fetch(visibilityUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isHidden: false })
+                }).catch(err => console.error('[PAGE] Visibility notify failed:', err));
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             console.log('[PAGE] Cleanup: removing listeners and notifying');
             window.removeEventListener('pagehide', notifyLeaving);
             window.removeEventListener('beforeunload', notifyLeaving);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             // Notify on component unmount (route change within app)
             notifyLeaving();
         };

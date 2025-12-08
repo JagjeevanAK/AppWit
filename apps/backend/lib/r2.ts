@@ -1,4 +1,5 @@
 import type { Sandbox } from "e2b";
+import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
@@ -15,7 +16,8 @@ const EXCLUDE_PATTERNS = [
     "dist",
     "build",
     ".next",
-    ".npm"
+    ".npm",
+    ".cache"
 ];
 
 export function isR2Configured(): boolean {
@@ -160,18 +162,17 @@ export async function restoreProject(
 
         console.log(`[R2] Restoring project ${projectId} from backup...`);
 
-        // Copy files from backup to project directory
-        const restoreCommand = `rsync -av --exclude='node_modules' "${backupPath}/" "${PROJECT_PATH}/"`;
-        const result = await sandbox.commands.run(restoreCommand, { timeoutMs: 300000 });
+        // Copy files from backup to project directory - use quiet mode for large directories
+        const restoreCommand = `rsync -a "${backupPath}/" "${PROJECT_PATH}/" 2>&1 | tail -20`;
+        const result = await sandbox.commands.run(restoreCommand, { timeoutMs: 600000 });
 
         if (result.exitCode !== 0) {
             console.error("[R2] Restore failed:", result.stderr);
-            console.error("[R2] Restore stdout:", result.stdout);
+            console.error("[R2] Restore output:", result.stdout);
             return false;
         }
 
-        const fileCount = result.stdout.split('\n').filter(line => line.trim() && !line.startsWith('sending')).length;
-        console.log(`[R2] ✓ Project ${projectId} restored successfully (${fileCount} items restored)`);
+        console.log(`[R2] ✓ Project ${projectId} restored successfully`);
         return true;
     } catch (error) {
         console.error("[R2] Error restoring project:", error);
@@ -202,20 +203,19 @@ export async function backupProject(
         // Build exclude string for rsync
         const excludeFlags = EXCLUDE_PATTERNS.map(p => `--exclude='${p}'`).join(" ");
 
-        // Sync project files to backup
-        const backupCommand = `rsync -av --delete ${excludeFlags} "${PROJECT_PATH}/" "${backupPath}/"`;
+        // Sync project files to backup - use quiet mode to avoid overwhelming E2B with output
+        // node_modules can have thousands of files which causes protocol errors
+        const backupCommand = `rsync -a --delete ${excludeFlags} "${PROJECT_PATH}/" "${backupPath}/" 2>&1 | tail -20`;
 
-        const result = await sandbox.commands.run(backupCommand, { timeoutMs: 300000 });
+        const result = await sandbox.commands.run(backupCommand, { timeoutMs: 600000 });
 
         if (result.exitCode !== 0) {
             console.error("[R2] Backup failed:", result.stderr);
-            console.error("[R2] Backup stdout:", result.stdout);
+            console.error("[R2] Backup output:", result.stdout);
             return false;
         }
 
-        // Log a summary of what was backed up
-        const fileCount = result.stdout.split('\n').filter(line => line.trim() && !line.startsWith('sending')).length;
-        console.log(`[R2] ✓ Project ${projectId} backed up successfully (${fileCount} items synced)`);
+        console.log(`[R2] ✓ Project ${projectId} backed up successfully`);
         return true;
     } catch (error) {
         console.error("[R2] Error backing up project:", error);
@@ -251,4 +251,63 @@ export async function initializeR2ForSandbox(
 
     console.log(`[R2] Initialization complete - mounted: ${mounted}, restored: ${restored}`);
     return { mounted, restored };
+}
+
+// Delete project files from R2 (called when project is deleted)
+export async function deleteProjectFromR2(userId: string, projectId: string): Promise<boolean> {
+    if (!isR2Configured()) {
+        console.log("[R2] R2 not configured, skipping delete");
+        return false;
+    }
+
+    try {
+        const prefix = `${userId}/${projectId}/`;
+        console.log(`[R2] Deleting project backup with prefix: ${prefix}...`);
+
+        // Create S3 client for R2
+        const s3Client = new S3Client({
+            region: "auto",
+            endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+            credentials: {
+                accessKeyId: R2_ACCESS_KEY_ID!,
+                secretAccessKey: R2_SECRET_ACCESS_KEY!
+            }
+        });
+
+        // List all objects with the project prefix
+        let continuationToken: string | undefined;
+        let totalDeleted = 0;
+
+        do {
+            const listCommand = new ListObjectsV2Command({
+                Bucket: R2_BUCKET_NAME!,
+                Prefix: prefix,
+                ContinuationToken: continuationToken
+            });
+
+            const listResult = await s3Client.send(listCommand);
+            const objects = listResult.Contents || [];
+
+            if (objects.length > 0) {
+                // Delete the objects in batches (max 1000 per request)
+                const deleteCommand = new DeleteObjectsCommand({
+                    Bucket: R2_BUCKET_NAME!,
+                    Delete: {
+                        Objects: objects.map(obj => ({ Key: obj.Key }))
+                    }
+                });
+
+                await s3Client.send(deleteCommand);
+                totalDeleted += objects.length;
+            }
+
+            continuationToken = listResult.NextContinuationToken;
+        } while (continuationToken);
+
+        console.log(`[R2] ✓ Deleted ${totalDeleted} objects from project ${projectId}`);
+        return true;
+    } catch (error) {
+        console.error("[R2] Error deleting project from R2:", error);
+        return false;
+    }
 }

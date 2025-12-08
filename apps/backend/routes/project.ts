@@ -124,10 +124,14 @@ router.delete("/:projectId", async (req: AuthRequest, res: Response) => {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (!projectId) {
+        return res.status(400).json({ error: "Project ID required" });
+    }
+
     try {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
-            select: { userId: true }
+            select: { userId: true, r2BackupPath: true }
         });
 
         if (!project) {
@@ -139,10 +143,19 @@ router.delete("/:projectId", async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ error: "Forbidden" });
         }
 
-        // Soft delete
+        // Delete from R2 if backup exists
+        if (project.r2BackupPath) {
+            const { deleteProjectFromR2 } = await import("../lib/r2");
+            await deleteProjectFromR2(userId as string, projectId);
+        }
+
+        // Soft delete and clear R2 backup path
         await prisma.project.update({
             where: { id: projectId },
-            data: { status: ProjectStatus.DELETED }
+            data: {
+                status: ProjectStatus.DELETED,
+                r2BackupPath: null
+            }
         });
 
         res.json({ success: true, message: "Project deleted" });
