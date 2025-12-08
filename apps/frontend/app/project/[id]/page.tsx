@@ -98,29 +98,57 @@ export default function ProjectPage() {
             return;
         }
 
-        console.log('[PAGE] Setting up beforeunload listener for sandbox:', sandboxId);
+        // Store sandboxId at window level for access during page unload
+        // This is important because React component may unmount before we can access state
+        (window as any).__currentSandboxId = sandboxId;
+        (window as any).__hasNotifiedLeaving = false;
+
+        console.log('[PAGE] Setting up leave listeners for sandbox:', sandboxId);
 
         const notifyLeaving = () => {
-            if (hasNotifiedLeaving.current) return;
-            hasNotifiedLeaving.current = true;
+            const currentSandboxId = (window as any).__currentSandboxId;
+            const hasNotified = (window as any).__hasNotifiedLeaving;
 
-            const token = localStorage.getItem('auth_token');
+            if (hasNotified || !currentSandboxId) {
+                console.log('[PAGE] Already notified or no sandboxId, skipping');
+                return;
+            }
+            (window as any).__hasNotifiedLeaving = true;
 
-            console.log('[PAGE] Sending notify-leaving beacon for:', sandboxId);
-            navigator.sendBeacon(
-                `${BackendUrl}/prompt/notify-leaving/${sandboxId}`,
-                new Blob([JSON.stringify({ token })], { type: 'application/json' })
-            );
-            console.log('[PAGE] Notified backend about leaving project');
+            console.log('[PAGE] Sending notify-leaving for sandbox:', currentSandboxId);
+
+            const url = `${BackendUrl}/prompt/notify-leaving/${currentSandboxId}`;
+            const data = JSON.stringify({ timestamp: Date.now() });
+            const blob = new Blob([data], { type: 'application/json' });
+
+            // Use sendBeacon for reliable delivery during page unload
+            const sent = navigator.sendBeacon(url, blob);
+            console.log('[PAGE] sendBeacon result:', sent ? 'sent' : 'failed');
+
+            if (!sent) {
+                // Fallback: try with XMLHttpRequest (synchronous) for more reliability
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', url, false); // false = synchronous
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(data);
+                    console.log('[PAGE] XHR fallback completed');
+                } catch (err) {
+                    console.error('[PAGE] XHR fallback failed:', err);
+                }
+            }
         };
 
-        // Handle browser close/tab close
+        // Only use pagehide/beforeunload for tab/browser close
+        // Don't use visibilitychange as it's too aggressive (fires on tab switch)
+        window.addEventListener('pagehide', notifyLeaving);
         window.addEventListener('beforeunload', notifyLeaving);
 
         return () => {
-            console.log('[PAGE] Cleanup: removing beforeunload listener');
+            console.log('[PAGE] Cleanup: removing listeners and notifying');
+            window.removeEventListener('pagehide', notifyLeaving);
             window.removeEventListener('beforeunload', notifyLeaving);
-            // Also notify on component unmount (route change within app)
+            // Notify on component unmount (route change within app)
             notifyLeaving();
         };
     }, [streamState.sandboxId]);

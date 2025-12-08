@@ -8,7 +8,7 @@ import type { Plan } from "../agent/types";
 import { prisma } from "../lib/prisma";
 import { MessageRole } from "../generated/prisma/client";
 import type { AuthRequest } from "../middleware/auth";
-import { performFullRestore, performFullBackup, isR2Configured } from "../lib/r2";
+import { initializeR2ForSandbox, backupProject, isR2Configured, ensureR2Mounted } from "../lib/r2";
 
 const router = Router();
 
@@ -116,7 +116,7 @@ function cancelPendingShutdown(sandboxId: string): boolean {
 }
 
 // Schedule a delayed shutdown with R2 backup
-function scheduleShutdown(sandboxId: string, projectId: string, userId: string): void {
+export function scheduleShutdown(sandboxId: string, projectId: string, userId: string): void {
     // Cancel any existing pending shutdown first
     cancelPendingShutdown(sandboxId);
 
@@ -153,22 +153,30 @@ async function performShutdownWithBackup(sandboxId: string): Promise<void> {
     try {
         // Perform R2 backup if configured
         if (userId && projectId && isR2Configured()) {
-            console.log(`[R2] Backing up project ${projectId} before scheduled termination`);
-            const backed = await performFullBackup(session.sandbox, userId, projectId);
+            console.log(`[SHUTDOWN] Preparing to backup project ${projectId}`);
 
-            if (backed) {
-                // Update project with R2 backup path
-                const r2BackupPath = `/${userId}/${projectId}/`;
-                await prisma.project.update({
-                    where: { id: projectId },
-                    data: {
-                        r2BackupPath,
-                        lastBackupAt: new Date()
-                    }
-                });
-                console.log(`[R2] Project ${projectId} backed up to ${r2BackupPath}`);
+            // Ensure R2 is still mounted (may have become stale)
+            const mountReady = await ensureR2Mounted(session.sandbox);
+            if (!mountReady) {
+                console.error(`[SHUTDOWN] ✗ Cannot backup - R2 mount not available`);
             } else {
-                console.warn(`[R2] Failed to backup project ${projectId}`);
+                console.log(`[SHUTDOWN] Backing up project ${projectId} before scheduled termination`);
+                const backed = await backupProject(session.sandbox, userId, projectId);
+
+                if (backed) {
+                    // Update project with R2 backup path
+                    const r2BackupPath = `/${userId}/${projectId}/`;
+                    await prisma.project.update({
+                        where: { id: projectId },
+                        data: {
+                            r2BackupPath,
+                            lastBackupAt: new Date()
+                        }
+                    });
+                    console.log(`[SHUTDOWN] ✓ Project ${projectId} backed up to ${r2BackupPath}`);
+                } else {
+                    console.error(`[SHUTDOWN] ✗ Failed to backup project ${projectId}`);
+                }
             }
         }
 
@@ -228,12 +236,13 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
         const isFirst = await isFirstMessage(chatId);
 
-        // Restore project files from R2 if this is a returning project
-        if (!isFirst && isR2Configured()) {
-            console.log(`[R2] Attempting to restore project ${projectId} for user ${userId}`);
-            const restored = await performFullRestore(sandbox, userId, projectId);
-            if (restored) {
-                console.log(`[R2] Project ${projectId} restored from backup`);
+        // Initialize R2 and restore project if this is a returning project
+        if (isR2Configured()) {
+            const shouldRestore = !isFirst;
+            console.log(`[INIT] Initializing R2 for ${isFirst ? 'new' : 'existing'} project ${projectId}`);
+            const { mounted, restored } = await initializeR2ForSandbox(sandbox, userId, projectId, shouldRestore);
+            if (mounted) {
+                console.log(`[INIT] R2 mounted successfully${restored ? ', project restored from backup' : ''}`);
             }
         }
 
@@ -451,14 +460,15 @@ router.post("/load/:projectId", async (req: AuthRequest, res: Response) => {
         const sandboxUrl = `https://${host}`;
         const sandboxId = sandbox.sandboxId;
 
+        // Initialize R2 and restore project if backup exists
         let restored = false;
-        if (isR2Configured() && project.r2BackupPath) {
-            console.log(`[LOAD] Restoring project ${projectId} from R2`);
-            restored = await performFullRestore(sandbox, userId, projectId);
-            if (restored) {
-                console.log(`[LOAD] Project ${projectId} restored from R2 backup`);
-            } else {
-                console.log(`[LOAD] No backup found for project ${projectId}`);
+        if (isR2Configured()) {
+            const shouldRestore = !!project.r2BackupPath;
+            console.log(`[LOAD] Initializing R2 for project ${projectId} (shouldRestore: ${shouldRestore})`);
+            const result = await initializeR2ForSandbox(sandbox, userId, projectId, shouldRestore);
+            restored = result.restored;
+            if (result.mounted) {
+                console.log(`[LOAD] R2 initialized${restored ? ', project restored from backup' : ', no backup to restore'}`);
             }
         }
 
@@ -566,12 +576,29 @@ router.delete("/:sandboxId", async (req: Request, res: Response) => {
     try {
         // Backup project to R2 before killing sandbox
         if (session.userId && session.projectId && isR2Configured()) {
-            console.log(`[R2] Backing up project ${session.projectId} before termination`);
-            const backed = await performFullBackup(session.sandbox, session.userId, session.projectId);
-            if (backed) {
-                console.log(`[R2] Project ${session.projectId} backed up successfully`);
+            console.log(`[DELETE] Preparing to backup project ${session.projectId}`);
+
+            // Ensure R2 is still mounted
+            const mountReady = await ensureR2Mounted(session.sandbox);
+            if (!mountReady) {
+                console.error(`[DELETE] ✗ Cannot backup - R2 mount not available`);
             } else {
-                console.warn(`[R2] Failed to backup project ${session.projectId}`);
+                console.log(`[DELETE] Backing up project ${session.projectId} before manual termination`);
+                const backed = await backupProject(session.sandbox, session.userId, session.projectId);
+                if (backed) {
+                    // Update project with R2 backup path
+                    const r2BackupPath = `/${session.userId}/${session.projectId}/`;
+                    await prisma.project.update({
+                        where: { id: session.projectId },
+                        data: {
+                            r2BackupPath,
+                            lastBackupAt: new Date()
+                        }
+                    });
+                    console.log(`[DELETE] ✓ Project ${session.projectId} backed up successfully`);
+                } else {
+                    console.error(`[DELETE] ✗ Failed to backup project ${session.projectId}`);
+                }
             }
         }
 

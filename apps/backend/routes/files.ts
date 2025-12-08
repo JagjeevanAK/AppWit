@@ -17,21 +17,21 @@ router.get("/read-file", async (req: Request, res: Response) => {
         }
 
         const session = activeSandboxes.get(sandboxId);
-        
+
         if (!session) {
             return res.status(404).json({ error: 'Sandbox not found or expired' });
         }
 
         const content = await session.sandbox.files.read(path);
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             path,
-            content 
+            content
         });
     } catch (error) {
         console.error('Error reading file:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to read file',
             message: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -47,17 +47,17 @@ router.get("/list-files", async (req: Request, res: Response) => {
         }
 
         const session = activeSandboxes.get(sandboxId);
-        
+
         if (!session) {
             return res.status(404).json({ error: 'Sandbox not found or expired' });
         }
 
         const files = await session.sandbox.files.list(typeof path === 'string' ? path : '/home/user');
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             path,
-            files: files.map((f: { name: string; type: string }) => ({
+            files: files.map(f => ({
                 name: f.name,
                 type: f.type,
                 path: `${path}/${f.name}`
@@ -65,7 +65,7 @@ router.get("/list-files", async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Error listing files:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to list files',
             message: error instanceof Error ? error.message : 'Unknown error'
         });
