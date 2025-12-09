@@ -23,7 +23,7 @@ export function createSandboxTools(sandbox: Sandbox) {
             name: "createFile",
             description: "Create a NEW file that doesn't exist yet. This will also create parent directories if needed.",
             schema: z.object({
-                location: z.string().describe('Absolute path to the file (e.g., /home/user/src/components/Button.tsx)'),
+                location: z.string().describe('Absolute path to the file (e.g., /home/user/components/Button.tsx)'),
                 content: z.string().describe('Complete content of the file')
             }),
         }
@@ -140,7 +140,7 @@ export function createSandboxTools(sandbox: Sandbox) {
                     `- **${theme.name}** (${theme.name.toLowerCase().replace(/\s+/g, '-')}): ${theme.description}\n  Best for: ${theme.bestFor.join(', ')}`
                 ).join('\n\n');
 
-                return `Available shadcn themes:\n\n${formattedList}\n\nUSAGE: Call getTheme with the theme name to get the CSS content, then paste it into /home/user/src/index.css`;
+                return `Available shadcn themes:\n\n${formattedList}\n\nUSAGE: Call getTheme with the theme name to get the CSS content, then paste it into /home/user/app/globals.css`;
             } catch (error) {
                 console.error(`[TOOL] getThemeInfo ERROR: ${error}`);
                 return `Error getting theme info: ${error}`;
@@ -170,7 +170,7 @@ export function createSandboxTools(sandbox: Sandbox) {
         },
         {
             name: "getTheme",
-            description: "Get the CSS content for a specific theme. Use this to download a theme, then paste the entire CSS into /home/user/src/index.css to apply it. ALWAYS add '@import \"tailwindcss\";' at the TOP of index.css before the theme CSS.",
+            description: "Get the CSS content for a specific theme. Use this to download a theme, then paste the entire CSS into /home/user/app/globals.css to apply it. ALWAYS add '@import \"tailwindcss\";' at the TOP of globals.css before the theme CSS.",
             schema: z.object({
                 themeName: z.string().describe('Theme name (e.g., "vercel", "darkmatter", "twitter", "caffeine", "claymorphism", "graphite", "mocha-mousse", "elegant-luxury", "sage-garden", "amethyst-haze")'),
             }),
@@ -220,6 +220,6 @@ export const toolDefinitions = {
     },
     getTheme: {
         name: "getTheme",
-        description: "Get the CSS content for a specific theme to apply to index.css",
+        description: "Get the CSS content for a specific theme to apply to globals.css",
     },
 };

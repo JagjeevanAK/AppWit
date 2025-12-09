@@ -11,6 +11,6 @@
 # const sandbox = await Sandbox.create('tzw1pourwpe5cp9qj83u')
 
 team_id = "c25751c5-dae4-4534-a389-44b6b39960c7"
-start_cmd = "npm run dev"
+start_cmd = "/home/user/start.sh"
 dockerfile = "e2b.Dockerfile"
 template_id = "tzw1pourwpe5cp9qj83u"

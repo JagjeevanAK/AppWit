@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const FileContentSchema = z.object({
-    filePath: z.string().describe("Absolute path to the file, e.g. /home/user/src/components/Button.tsx"),
+    filePath: z.string().describe("Absolute path to the file, e.g. /home/user/components/Button.tsx"),
     content: z.string().describe("Complete file content"),
 });
 

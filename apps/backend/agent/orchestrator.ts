@@ -106,9 +106,9 @@ function createThemeApplicatorNode(sandbox: Sandbox) {
                 return {};
             }
 
-            // Write theme CSS directly to index.css
-            await sandbox.files.write('/home/user/src/index.css', themeCSS);
-            log_theme(`Theme "${themeName}" applied to index.css`);
+            // Write theme CSS directly to globals.css
+            await sandbox.files.write('/home/user/app/globals.css', themeCSS);
+            log_theme(`Theme "${themeName}" applied to globals.css`);
             config?.configurable?.streamCallback?.({ type: 'completed', message: `Theme "${themeName}" applied` });
 
         } catch (error) {

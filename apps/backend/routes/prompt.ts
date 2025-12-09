@@ -28,7 +28,7 @@ function generateCodeSummary(files: string[], commandCount: number, action: 'cre
     const fileNames = files.map(f => f.split('/').pop() || f);
     const hasComponents = files.some(f => f.includes('/components/') || f.includes('Component'));
     const hasStyles = files.some(f => f.endsWith('.css') || f.endsWith('.scss'));
-    const hasApp = files.some(f => f.includes('App.tsx') || f.includes('App.jsx'));
+    const hasApp = files.some(f => f.includes('App.tsx') || f.includes('App.jsx') || f.includes('page.tsx'));
     const hasPages = files.some(f => f.includes('/pages/') || f.includes('/app/'));
 
     if (action === 'created') {
@@ -280,17 +280,27 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 });
 
 /**
- * Reads the main App.tsx file from the sandbox to provide context for the LLM
- * Only reads App.tsx as it's the primary file that gets customized
+ * Reads the main page.tsx (Next.js) or App.tsx (Vite) file from the sandbox to provide context for the LLM
  */
 async function getCurrentProjectContext(sandbox: import("e2b").Sandbox): Promise<string> {
+    // Try Next.js page.tsx first
+    try {
+        const pageContent = await sandbox.files.read('/home/user/app/page.tsx');
+        if (pageContent && typeof pageContent === 'string') {
+            return `\n\nCURRENT page.tsx:\n\`\`\`tsx\n${pageContent}\n\`\`\``;
+        }
+    } catch {
+        // page.tsx might not exist
+    }
+
+    // Fall back to Vite App.tsx for backward compatibility
     try {
         const appContent = await sandbox.files.read('/home/user/src/App.tsx');
         if (appContent && typeof appContent === 'string') {
             return `\n\nCURRENT App.tsx:\n\`\`\`tsx\n${appContent}\n\`\`\``;
         }
     } catch {
-        // App.tsx might not exist yet
+        // App.tsx might not exist
     }
     return '';
 }
@@ -326,7 +336,7 @@ router.post("/continue", async (req: AuthRequest, res: Response) => {
             // Mark session as streaming
             session.isStreaming = true;
 
-            // Get current project context (existing App.tsx)
+            // Get current project context (existing page.tsx or App.tsx)
             console.log(`[Continue] Reading current project context...`);
             const projectContext = await getCurrentProjectContext(session.sandbox);
 
