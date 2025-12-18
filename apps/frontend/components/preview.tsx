@@ -108,6 +108,7 @@ export default function Preview({ preview_url, isStreaming = false }: PreviewPro
                 src={displayUrl}
                 className="w-full h-full border-0 rounded-2xl"
                 title="Application Preview"
+                allow="clipboard-read; clipboard-write; camera; microphone; geolocation; fullscreen"
                 onLoad={handleIframeLoad}
                 onError={handleIframeError}
             />
