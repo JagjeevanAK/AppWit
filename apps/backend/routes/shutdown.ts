@@ -173,13 +173,16 @@ export async function scheduleShutdown(sandboxId: string, projectId: string, use
         if (currentSession.isStreaming) {
             console.log(`[SHUTDOWN] Waiting for streaming to complete...`);
             let waitTime = 0;
-            const maxWait = 60000; // 1 minute max wait
+            const maxWait = 300000; // 5 minutes max wait for complex generations
             while (currentSession.isStreaming && waitTime < maxWait) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                waitTime += 1000;
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                waitTime += 2000;
             }
             if (currentSession.isStreaming) {
-                console.log(`[SHUTDOWN] Streaming did not complete after ${maxWait / 1000}s, proceeding anyway`);
+                console.log(`[SHUTDOWN] Streaming still active after ${maxWait / 1000}s, aborting shutdown to protect generation`);
+                currentSession.isShuttingDown = false;
+                pendingShutdowns.delete(sandboxId);
+                return; // Abort - don't kill while streaming
             }
         }
 
@@ -271,12 +274,12 @@ async function checkAndKillIfConditionsMet(sandboxId: string): Promise<void> {
         return;
     }
 
-    // Condition 2: Streaming must be complete
+    // Condition 2: Streaming must be complete - NEVER kill during active streaming
     if (session.isStreaming) {
-        console.log(`[VISIBILITY] Streaming still running for ${sandboxId}, rescheduling check...`);
+        console.log(`[VISIBILITY] Streaming still running for ${sandboxId}, rescheduling check in 60s...`);
         const timer = setTimeout(async () => {
             await checkAndKillIfConditionsMet(sandboxId);
-        }, 30000); // Check again in 30s
+        }, 60000); // Check again in 60s - give more time for complex generations
         tabHiddenTimers.set(sandboxId, timer);
         return;
     }

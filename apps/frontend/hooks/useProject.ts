@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BackendUrl } from "@/config";
 
 interface Project {
@@ -24,54 +24,46 @@ interface Project {
     }>;
 }
 
-export function useProject(projectId: string) {
-    const [project, setProject] = useState<Project | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+async function fetchProject(projectId: string): Promise<Project> {
+    const token = localStorage.getItem("auth_token");
 
-    useEffect(() => {
-        if (!projectId) {
-            setLoading(false);
-            return;
-        }
+    if (!token) {
+        throw new Error("Not authenticated");
+    }
 
-        const loadProject = async () => {
-            try {
-                const token = localStorage.getItem("auth_token");
-
-                if (!token) {
-                    setError("Not authenticated");
-                    setLoading(false);
-                    return;
-                }
-
-                const response = await fetch(
-                    `${BackendUrl}/project/${projectId}`,
-                    {
-                        headers: {
-                            "Authorization": `Bearer ${token}`
-                        }
-                    }
-                );
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error("Load project failed:", response.status, errorText);
-                    throw new Error("Failed to load project");
-                }
-
-                const data = await response.json();
-                setProject(data);
-            } catch (err) {
-                console.error("Error loading project:", err);
-                setError(err instanceof Error ? err.message : "Failed to load project");
-            } finally {
-                setLoading(false);
+    const response = await fetch(
+        `${BackendUrl}/project/${projectId}`,
+        {
+            headers: {
+                "Authorization": `Bearer ${token}`
             }
-        };
+        }
+    );
 
-        loadProject();
-    }, [projectId]);
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Load project failed:", response.status, errorText);
+        throw new Error("Failed to load project");
+    }
 
-    return { project, loading, error };
+    return response.json();
+}
+
+export function useProject(projectId: string) {
+    const {
+        data: project,
+        isLoading: loading,
+        error,
+    } = useQuery({
+        queryKey: ['project', projectId],
+        queryFn: () => fetchProject(projectId),
+        enabled: !!projectId,
+        staleTime: 60000, // Consider data fresh for 1 minute
+    });
+
+    return {
+        project: project ?? null,
+        loading,
+        error: error ? (error instanceof Error ? error.message : "Failed to load project") : null
+    };
 }
