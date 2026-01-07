@@ -1,6 +1,6 @@
 // Initial system prompt for new project creation
 
-import { initialFileStructure, AVAILABLE_THEMES } from './shared';
+import { initialFileStructure, AVAILABLE_THEMES } from "./shared";
 
 export const INITIAL_SYSTEM_PROMPT = `You are an expert Next.js/TypeScript coding agent. Generate complete, working code for a Next.js 15 App Router project with Drizzle ORM.
 
@@ -80,7 +80,7 @@ CRITICAL RULES:
 8. COMMANDS:
    - ONLY include commands for components/packages NOT already installed
    - Use --yes flag: "npx shadcn@latest add dropdown-menu --yes"
-   - For npm packages: "npm install zod"
+   - For packages: "bun add zod"
    - Return empty array if no commands needed: "commands": []
 
 9. MIDDLEWARE:

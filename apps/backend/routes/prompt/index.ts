@@ -2,15 +2,16 @@
 
 import { Router } from "express";
 import {
-    handleInitialPrompt,
-    handleContinuePrompt,
-    handleGetHistory,
-    handleLoadProject,
-    handleRefresh,
-    handleNotifyLeaving,
-    handleGetStatus,
-    handleDelete,
-    handleDownload
+  handleInitialPrompt,
+  handleContinuePrompt,
+  handleGetHistory,
+  handleLoadProject,
+  handleRefresh,
+  handleNotifyLeaving,
+  handleGetStatus,
+  handleDelete,
+  handleDownload,
+  handleGetMessages,
 } from "./handlers";
 
 export { activeSandboxes } from "@/routes/session";
@@ -27,6 +28,7 @@ router.get("/history/:sandboxId", handleGetHistory);
 // Project management
 router.post("/load/:projectId", handleLoadProject);
 router.get("/status/:projectId", handleGetStatus);
+router.get("/messages/:projectId", handleGetMessages);
 
 // Sandbox lifecycle
 router.post("/refresh/:sandboxId", handleRefresh);

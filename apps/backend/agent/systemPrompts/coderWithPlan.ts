@@ -36,7 +36,7 @@ REQUIREMENTS:
 3. Content must be complete, working code
 4. For API routes, export GET/POST/PUT/DELETE functions as needed
 5. For database schema, add proper table definitions with all fields
-6. Commands array should include any npm installs or shadcn adds needed
+6. Commands array should include any bun add or shadcn adds needed
 7. Do NOT modify globals.css (theme is auto-applied)
 
 FILE TEMPLATES:

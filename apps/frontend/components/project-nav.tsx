@@ -1,0 +1,358 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import {
+  Download,
+  Loader2,
+  Eye,
+  Terminal,
+  PanelLeftOpen,
+  PanelLeftClose,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { BackendUrl } from "@/config";
+import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+
+interface ProjectNavProps {
+  projectName?: string;
+  onProjectNameChange?: (newName: string) => void;
+  sandboxId: string | null;
+  isChatCollapsed: boolean;
+  onToggleChat: () => void;
+  activeTab: "preview" | "code";
+  onTabChange: (tab: "preview" | "code") => void;
+  chatPanelSize: number;
+}
+
+export default function ProjectNav({
+  projectName,
+  onProjectNameChange,
+  sandboxId,
+  isChatCollapsed,
+  onToggleChat,
+  activeTab,
+  onTabChange,
+  chatPanelSize,
+}: ProjectNavProps) {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(projectName || "");
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user, signout } = useAuth();
+  const router = useRouter();
+
+  // Update editedName when projectName prop changes
+  useEffect(() => {
+    setEditedName(projectName || "");
+  }, [projectName]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleNameSubmit = () => {
+    if (
+      editedName.trim() &&
+      editedName !== projectName &&
+      onProjectNameChange
+    ) {
+      onProjectNameChange(editedName.trim());
+    } else {
+      setEditedName(projectName || "");
+    }
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleNameSubmit();
+    } else if (e.key === "Escape") {
+      setEditedName(projectName || "");
+      setIsEditingName(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!sandboxId || isDownloading) return;
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(
+        `${BackendUrl}/prompt/download/${sandboxId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to download project");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `project-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.error("Failed to download project. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Get user initials for avatar
+  const getInitials = () => {
+    if (user?.name) {
+      return user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  return (
+    <nav className="w-full bg-[#1D1D1D] px-4 py-2">
+      <div className="flex items-center">
+        {/* Left side - Project Name + Collapse Button (takes up chat panel width) */}
+        <div
+          className="flex items-center gap-3 shrink-0 pr-4"
+          style={{ width: isChatCollapsed ? "auto" : `${chatPanelSize}%` }}
+        >
+          {/* Project Name */}
+          <div className="min-w-0 flex-1">
+            {isEditingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onBlur={handleNameSubmit}
+                onKeyDown={handleNameKeyDown}
+                className="bg-transparent text-white text-sm font-medium outline-none border-b border-white/30 pb-0.5"
+                placeholder="Project name"
+              />
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="text-left group flex items-center gap-2"
+                title="Click to rename project"
+              >
+                <span className="text-sm font-medium text-white truncate max-w-[200px]">
+                  {projectName || "Untitled Project"}
+                </span>
+                <svg
+                  className="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Collapse/Expand Button - on chat side of handle */}
+          <button
+            onClick={onToggleChat}
+            className="flex items-center justify-center w-8 h-8 rounded-md bg-[#3C3C3C] text-gray-400 hover:text-white hover:bg-[#4C4C4C] transition-all shrink-0"
+            title={isChatCollapsed ? "Expand chat" : "Collapse chat"}
+          >
+            {isChatCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        {/* Preview/Code Toggle - on editor side of handle */}
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            isChatCollapsed ? "ml-2" : "ml-2"
+          )}
+        >
+          <div className="flex items-center bg-[#3C3C3C] rounded-md p-0.5">
+            <button
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
+                activeTab === "preview"
+                  ? "bg-[#007ACC] text-white"
+                  : "text-gray-400 hover:text-white hover:bg-[#4C4C4C]"
+              )}
+              onClick={() => onTabChange("preview")}
+            >
+              <Eye className="h-4 w-4" />
+              <span>Preview</span>
+            </button>
+            <button
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
+                activeTab === "code"
+                  ? "bg-[#007ACC] text-white"
+                  : "text-gray-400 hover:text-white hover:bg-[#4C4C4C]"
+              )}
+              onClick={() => onTabChange("code")}
+            >
+              <Terminal className="h-4 w-4" />
+              <span>Code</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right side - Download + Profile */}
+        <div className="flex items-center gap-2">
+          {/* Download Button */}
+          <button
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded transition-all duration-200",
+              "bg-white text-black hover:bg-gray-200",
+              isDownloading && "opacity-50 cursor-not-allowed",
+              !sandboxId && "opacity-30 cursor-not-allowed"
+            )}
+            onClick={handleDownload}
+            disabled={!sandboxId || isDownloading}
+            title={
+              sandboxId
+                ? "Download project as archive"
+                : "Waiting for sandbox..."
+            }
+          >
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Download</span>
+          </button>
+
+          {/* Profile Button */}
+          {user && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-black text-sm font-medium hover:ring-2 hover:ring-white/30 transition-all"
+              >
+                {getInitials()}
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-white/10">
+                    <p className="text-sm font-medium text-white truncate">
+                      {user.name || "User"}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {user.email}
+                    </p>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        router.push("/projects");
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-3"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                        />
+                      </svg>
+                      My Projects
+                    </button>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="border-t border-white/10 py-1">
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        signout();
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-3"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}

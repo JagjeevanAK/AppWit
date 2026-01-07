@@ -1,3 +1,71 @@
+/**
+ * MODULE: Agent Orchestrator - LangGraph State Machine
+ * 
+ * This module defines the core code generation pipeline using LangGraph's StateGraph.
+ * It orchestrates multiple specialized nodes in a directed graph to transform a user
+ * prompt into generated code files.
+ * 
+ * ARCHITECTURE:
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │                          LangGraph State Machine                            │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ * 
+ *   START
+ *     │
+ *     ▼
+ * ┌─────────┐    Analyzes prompt, creates task list
+ * │ planner │    Output: Plan with file tasks
+ * └────┬────┘
+ *      │
+ *      ▼
+ * ┌─────────┐    Generates code for each task
+ * │ codegen │    Uses batch processing for large plans
+ * └────┬────┘
+ *      │
+ *      ▼
+ * ┌───────────────┐    Applies theme colors/variables
+ * │themeApplicator│    if theme is specified in output
+ * └───────┬───────┘
+ *         │
+ *         ▼
+ * ┌──────────────┐    Runs npm commands (install deps)
+ * │commandHandler│    in the E2B sandbox
+ * └───────┬──────┘
+ *         │
+ *         ▼
+ * ┌────────┐    Writes files to E2B sandbox filesystem
+ * │ writer │    Creates directories as needed
+ * └────┬───┘
+ *      │
+ *      ▼
+ * ┌──────────┐    Validates all planned files exist
+ * │ reviewer │────────┐
+ * └────┬─────┘        │
+ *      │              │ (if issues found && retryCount < 1)
+ *      │              │ Loop back to codegen
+ *      ▼              │
+ *     END ◄───────────┘
+ * 
+ * 
+ * STREAMING EVENTS:
+ * The `streamOrchestrator` emits events during execution:
+ * - 'planning'       → Initial analysis phase
+ * - 'plan_complete'  → Plan created with task list
+ * - 'generating'     → Code generation in progress
+ * - 'executing'      → Running shell commands
+ * - 'file_created'   → File written to sandbox
+ * - 'review_complete'→ Validation finished
+ * - 'retrying'       → Regenerating missing files
+ * - 'done'           → Pipeline complete
+ * - 'error'          → Fatal error occurred
+ * 
+ * 
+ * PROGRESSIVE FILE WRITING:
+ * Files are written to the sandbox as they're generated (not at the end).
+ * This allows the frontend to show progress and enables the dev server
+ * to hot-reload during generation.
+ */
+
 // Main orchestrator - sets up the graph and exports run/stream functions
 
 import { StateGraph, START, END } from "@langchain/langgraph";

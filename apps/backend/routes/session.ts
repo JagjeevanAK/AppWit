@@ -3,37 +3,55 @@ import type { BaseMessage } from "@langchain/core/messages";
 import type { Plan } from "../agent/types";
 
 export interface SandboxSession {
-    sandbox: Sandbox;
-    messages: BaseMessage[];
-    sandboxUrl: string;
-    plan?: Plan;
-    projectId?: string;
-    chatId?: string;
-    userId?: string;
-    isStreaming?: boolean;
-    isTabHidden?: boolean;
-    tabHiddenSince?: Date;
-    isBackingUp?: boolean;
-    isShuttingDown?: boolean;  // Prevent reopening during shutdown
-    createdAt: Date;            // Track sandbox creation time for 5-min minimum
+  sandbox: Sandbox;
+  messages: BaseMessage[];
+  sandboxUrl: string;
+  plan?: Plan;
+  projectId?: string;
+  chatId?: string;
+  userId?: string;
+  isStreaming?: boolean;
+  isTabHidden?: boolean;
+  isBackingUp?: boolean;
+  isShuttingDown?: boolean;
+  createdAt: Date;
+  // Backup tracking
+  lastBackupAt?: Date;
+  lastCodeHash?: string;
+  // Debounce timer for backup (shutdown flow)
+  backupDebounceTimer?: NodeJS.Timeout;
+  // Auto-backup interval timer (runs every AUTO_BACKUP_INTERVAL_MS)
+  autoBackupTimer?: NodeJS.Timeout;
 }
 
 export interface PendingShutdown {
-    timeoutId: NodeJS.Timeout | null;
-    scheduledAt: Date;
-    projectId: string;
-    userId: string;
+  timeoutId: NodeJS.Timeout | null;
+  scheduledAt: Date;
+  projectId: string;
+  userId: string;
 }
 
 export const activeSandboxes = new Map<string, SandboxSession>();
 export const pendingShutdowns = new Map<string, PendingShutdown>();
-export const tabHiddenTimers = new Map<string, NodeJS.Timeout>();
 
-// Delay before starting backup when user leaves route
-export const SHUTDOWN_DELAY_MS = 10 * 1000; // 10 seconds
+// ============================================
+// SHUTDOWN TIMING CONSTANTS
+// ============================================
 
-// Minimum time sandbox must be running before tab-hidden kill
-export const MIN_SANDBOX_UPTIME_MS = 5 * 60 * 1000; // 5 minutes
+// Time to wait before starting backup when user leaves/switches tab (1 minute debounce)
+export const BACKUP_DEBOUNCE_MS = 1 * 60 * 1000;
 
-// Time after tab hidden before checking kill conditions
-export const TAB_HIDDEN_CHECK_DELAY_MS = 10 * 1000; // 10 seconds
+// Auto-backup interval: backup every 1 minute while user is active (if code changed)
+export const AUTO_BACKUP_INTERVAL_MS = 1 * 60 * 1000;
+
+// Time to wait after backup completes before killing sandbox (30 seconds buffer)
+export const POST_BACKUP_KILL_DELAY_MS = 30 * 1000;
+
+// Legacy: Time to wait before shutdown (keeping for backwards compatibility, but not used in new flow)
+export const IDLE_SHUTDOWN_MS = 1 * 60 * 1000;
+
+// Time to wait after agent completes work before shutdown (3 minutes)
+export const POST_STREAMING_SHUTDOWN_MS = 3 * 60 * 1000;
+
+// Max time to wait for streaming to complete before force shutdown (10 minutes)
+export const MAX_STREAMING_WAIT_MS = 10 * 60 * 1000;

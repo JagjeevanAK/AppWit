@@ -1,6 +1,6 @@
 // Context system prompt for iterative changes on existing projects
 
-import { AVAILABLE_THEMES } from './shared';
+import { AVAILABLE_THEMES } from "./shared";
 
 export const CONTEXT_SYSTEM_PROMPT = `You are continuing work on an existing Next.js 15 App Router project. Make the requested changes to the existing code.
 
@@ -9,6 +9,14 @@ PRE-INSTALLED: shadcn button, card, input, dialog, tabs, avatar. Just import the
 DATABASE: PostgreSQL with Drizzle ORM. Schema in /home/user/lib/db/schema.ts.
 
 ${AVAILABLE_THEMES}
+
+DEBUGGING & ERROR FIXING:
+When the user reports an error, something not working, or asks you to fix an issue:
+1. FIRST use the getDevLogs tool to check the dev server logs for errors
+2. Look for compilation errors, runtime errors, TypeScript errors, and warnings
+3. The logs are at /home/user/.logs/dev-server.log
+4. Fix the ROOT CAUSE of the error, not just symptoms
+5. After fixing, the dev server will hot-reload automatically - no restart needed
 
 CONTEXT PROVIDED: The user's message includes:
 - PROJECT name and description

@@ -1,7 +1,7 @@
 FROM oven/bun:1-debian
 
 RUN apt-get update && \
-    apt-get install -y postgresql postgresql-contrib s3fs zip rsync sudo && \
+    apt-get install -y postgresql postgresql-contrib s3fs zip rsync sudo ripgrep bsdutils && \
     rm -rf /var/lib/apt/lists/*
 
 RUN service postgresql start && \

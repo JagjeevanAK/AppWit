@@ -1,6 +1,3 @@
-// Nodes index - exports all orchestrator nodes
-
-// Types and state
 export {
     GraphState,
     type GraphStateType,
@@ -9,7 +6,6 @@ export {
     log
 } from './types';
 
-// Nodes
 export { plannerNode } from './planner';
 export { coderNode } from './coder';
 export { createThemeApplicatorNode } from './themeApplicator';

@@ -44,6 +44,7 @@ model Project {
   sandboxUrl   String?
   status       ProjectStatus @default(ACTIVE)
   r2BackupPath String?
+  thumbnailUrl String?
   lastBackupAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

@@ -2,7 +2,6 @@
 
 import InputBox from "@/components/inputbox";
 import LiquidEther from "@/components/LiquidEther";
-import { ProjectsList } from "@/components/projects-list";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -54,26 +53,6 @@ export default function Home() {
             onSendMessage={handlePromptSubmit}
           />
         </div>
-
-        <div className="flex flex-wrap justify-center gap-2">
-          {[
-            "Build a SaaS landing page",
-            "Create a dashboard with charts",
-            "Make a personal portfolio",
-            "Design an e-commerce store",
-          ].map((prompt, i) => (
-            <button
-              key={i}
-              onClick={() => handlePromptSubmit(prompt)}
-              className="text-sm text-muted-foreground hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full transition-colors border border-white/10"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        {/* Show projects list for logged in users */}
-        {user && <ProjectsList />}
       </div>
     </div>
   );

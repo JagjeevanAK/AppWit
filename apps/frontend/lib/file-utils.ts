@@ -40,7 +40,10 @@ export function inferLanguage(filename: string): string {
   return languageMap[ext || ""] || "plaintext";
 }
 
-export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string = '/home/user'): FileNode[] {
+export function buildFileTreeFromSandbox(
+  files: SandboxFile[],
+  basePath: string = "/home/user"
+): FileNode[] {
   const tree: FileNode[] = [];
   const pathMap = new Map<string, FileNode>();
 
@@ -50,9 +53,9 @@ export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string 
     const node: FileNode = {
       id: fullPath,
       name: file.name,
-      kind: file.type === 'dir' ? 'folder' : 'file',
+      kind: file.type === "dir" ? "folder" : "file",
       path: fullPath,
-      children: file.type === 'dir' ? [] : undefined,
+      children: file.type === "dir" ? [] : undefined,
     };
     pathMap.set(fullPath, node);
   }
@@ -60,9 +63,9 @@ export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string 
   // Second pass: build parent-child relationships
   for (const file of files) {
     const node = pathMap.get(file.path)!;
-    const parentPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    const parentPath = file.path.substring(0, file.path.lastIndexOf("/"));
 
-    if (parentPath === basePath || parentPath === '') {
+    if (parentPath === basePath || parentPath === "") {
       tree.push(node);
     } else {
       const parent = pathMap.get(parentPath);
@@ -77,8 +80,8 @@ export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string 
   // Sort: folders first, then alphabetically
   const sortNodes = (nodes: FileNode[]): FileNode[] => {
     nodes.sort((a, b) => {
-      if (a.kind === 'folder' && b.kind === 'file') return -1;
-      if (a.kind === 'file' && b.kind === 'folder') return 1;
+      if (a.kind === "folder" && b.kind === "file") return -1;
+      if (a.kind === "file" && b.kind === "folder") return 1;
       return a.name.localeCompare(b.name);
     });
     for (const node of nodes) {
@@ -94,29 +97,38 @@ export function buildFileTreeFromSandbox(files: SandboxFile[], basePath: string 
 
 export async function fetchSandboxFileTree(
   sandboxId: string,
-  listFilesFunc: (sandboxId: string, path: string) => Promise<SandboxFile[] | null>,
-  basePath: string = '/home/user'
+  listFilesFunc: (
+    sandboxId: string,
+    path: string
+  ) => Promise<SandboxFile[] | null>,
+  basePath: string = "/home/user"
 ): Promise<FileNode[]> {
-  console.log('fetchSandboxFileTree called with:', { sandboxId, basePath });
+  console.log("fetchSandboxFileTree called with:", { sandboxId, basePath });
 
   const excludeDirs = [
-    'node_modules',
-    '.git',
-    'dist',
-    'build',
-    '.next',
-    '.vite',
-    '.vite-temp',
-    '.npm',
-    '.cache',
-    '.local',
-    '.config',
-    '.pnpm',
-    '.yarn',
-    '.bun'
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    ".next",
+    ".vite",
+    ".vite-temp",
+    ".npm",
+    ".cache",
+    ".local",
+    ".config",
+    ".pnpm",
+    ".yarn",
+    ".bun",
   ];
 
-  const excludeFiles = ['.bash_logout', '.bashrc', '.profile'];
+  const excludeFiles = [
+    ".bash_logout",
+    ".bashrc",
+    ".profile",
+    "start.sh",
+    ".sudo_as_admin_successful",
+  ];
 
   const allFiles: SandboxFile[] = [];
   const dirsToProcess: string[] = [basePath];
@@ -128,36 +140,42 @@ export async function fetchSandboxFileTree(
     if (processedDirs.has(currentPath)) continue;
     processedDirs.add(currentPath);
 
-    console.log('Fetching files from path:', currentPath);
+    console.log("Fetching files from path:", currentPath);
     const files = await listFilesFunc(sandboxId, currentPath);
-    console.log('Got files:', files);
+    console.log("Got files:", files);
 
     if (!files) continue;
 
     for (const file of files) {
       const fileName = file.name;
 
-      if (file.type === 'dir' && excludeDirs.includes(fileName)) {
-        console.log('Skipping excluded directory:', fileName);
+      if (file.type === "dir" && excludeDirs.includes(fileName)) {
+        console.log("Skipping excluded directory:", fileName);
         continue;
       }
 
-      if (file.type === 'file' && excludeFiles.includes(fileName)) {
-        console.log('Skipping excluded file:', fileName);
+      if (file.type === "file" && excludeFiles.includes(fileName)) {
+        console.log("Skipping excluded file:", fileName);
+        continue;
+      }
+
+      // Skip files ending with .sudo
+      if (file.type === "file" && fileName.endsWith(".sudo")) {
+        console.log("Skipping .sudo file:", fileName);
         continue;
       }
 
       allFiles.push(file);
 
-      if (file.type === 'dir') {
+      if (file.type === "dir") {
         dirsToProcess.push(file.path);
       }
     }
   }
 
-  console.log('Total files collected:', allFiles.length);
+  console.log("Total files collected:", allFiles.length);
   const tree = buildFileTreeFromSandbox(allFiles, basePath);
-  console.log('Built tree with nodes:', tree.length);
+  console.log("Built tree with nodes:", tree.length);
   return tree;
 }
 
@@ -166,13 +184,16 @@ export async function loadFileContent(
   filePath: string,
   readFileFunc: (sandboxId: string, path: string) => Promise<string | null>
 ): Promise<string> {
-  console.log('loadFileContent called with:', { sandboxId, filePath });
-  console.log('readFileFunc type:', typeof readFileFunc);
+  console.log("loadFileContent called with:", { sandboxId, filePath });
+  console.log("readFileFunc type:", typeof readFileFunc);
 
   const content = await readFileFunc(sandboxId, filePath);
-  console.log('Content received:', content ? `${content.length} chars` : 'null');
+  console.log(
+    "Content received:",
+    content ? `${content.length} chars` : "null"
+  );
 
-  return content || '// Unable to load file content';
+  return content || "// Unable to load file content";
 }
 
 export function updateFileNodeWithContent(

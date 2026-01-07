@@ -1,56 +1,58 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useAuth } from "@/hooks/useAuth"
-import { Button } from "@/components/ui/button"
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import Link from "next/link"
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { toast } from "@/components/ui/sonner";
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
-  const { signup, signinWithGoogle } = useAuth()
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const { signup, signinWithGoogle } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
+      toast.error("Passwords do not match");
+      return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters")
-      return
+      toast.error("Password must be at least 8 characters");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
-      await signup(email, password, name)
+      await signup(email, password, name);
+      toast.success("Account created successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign up failed")
+      const errorMessage =
+        err instanceof Error ? err.message : "Sign up failed";
+      toast.error(errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <Card {...props}>
@@ -63,9 +65,6 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
       <CardContent>
         <form onSubmit={handleSubmit}>
           <FieldGroup>
-            {error && (
-              <div className="text-sm text-red-500 text-center">{error}</div>
-            )}
             <Field>
               <FieldLabel htmlFor="name">Full Name</FieldLabel>
               <Input
@@ -156,5 +155,5 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }
