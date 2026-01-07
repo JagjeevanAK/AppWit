@@ -11,7 +11,7 @@ import { useStream } from "@/hooks/useStream";
 import { useParams, useRouter } from "next/navigation";
 import { useSandboxHeartbeat } from "@/hooks/useSandboxHeartbeat";
 import { useProject } from "@/hooks/useProject";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { BackendUrl } from "@/config";
 import { ImperativePanelHandle } from "react-resizable-panels";
 import ProjectNav from "@/components/project-nav";
@@ -44,7 +44,13 @@ export default function ProjectPage() {
   const [loadingStatus, setLoadingStatus] =
     useState<string>("Loading project...");
 
-  useSandboxHeartbeat(streamState.sandboxId);
+  // Handle sandbox death - redirect user to projects page
+  const handleSandboxDead = useCallback(() => {
+    console.log("[PAGE] Sandbox is dead, redirecting to projects page");
+    router.push("/project");
+  }, [router]);
+
+  useSandboxHeartbeat(streamState.sandboxId, handleSandboxDead);
 
   // Handle initial prompt or load existing project
   useEffect(() => {

@@ -71,20 +71,6 @@ graph TB
     Preview --> E2B
 ```
 
-### Agent Pipeline Flow
-
-```mermaid
-graph LR
-    START((Start)) --> Planner
-    Planner --> |Plan Created| Coder
-    Coder --> |Files Generated| Theme
-    Theme --> |Theme Applied| Cmd
-    Cmd --> |Commands Run| Writer
-    Writer --> |Files Written| Reviewer
-    Reviewer --> |Success| END((End))
-    Reviewer --> |Issues Found<br/>retryCount < 1| Coder
-```
-
 ### UML Sequence Diagram: Code Generation Flow
 
 ```mermaid
@@ -135,59 +121,7 @@ sequenceDiagram
     Frontend-->>User: Display result
 ```
 
-### UML Sequence Diagram: Authentication Flow
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Frontend
-    participant API as Backend API
-    participant DB as PostgreSQL
-    participant Google as Google OAuth
-
-    alt Email/Password Login
-        User->>Frontend: Enter credentials
-        Frontend->>API: POST /auth/signin
-        API->>DB: Verify credentials
-        DB-->>API: User record
-        API->>API: Generate JWT
-        API-->>Frontend: JWT token
-    else Google OAuth
-        User->>Frontend: Click Google Sign-in
-        Frontend->>Google: OAuth redirect
-        Google-->>Frontend: Auth code
-        Frontend->>API: POST /auth/google
-        API->>Google: Exchange code for token
-        Google-->>API: User info
-        API->>DB: Upsert user
-        API->>API: Generate JWT
-        API-->>Frontend: JWT token
-    end
-
-    Frontend->>Frontend: Store token
-    Frontend-->>User: Redirect to dashboard
-```
-
 ---
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Monorepo** | Turborepo |
-| **Runtime** | Bun v1.1.38+ |
-| **Frontend** | Next.js 16, React 19, TypeScript |
-| **Backend** | Express 5, TypeScript |
-| **AI Orchestration** | LangGraph, LangChain |
-| **LLM Providers** | Anthropic Claude, OpenAI |
-| **Code Sandbox** | E2B |
-| **Database** | PostgreSQL with Prisma ORM |
-| **Object Storage** | AWS S3 |
-| **UI Components** | Radix UI, Tailwind CSS |
-| **Code Editor** | Monaco Editor |
-
----
-
 ## Project Structure
 
 ```

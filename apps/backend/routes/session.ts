@@ -55,3 +55,44 @@ export const POST_STREAMING_SHUTDOWN_MS = 3 * 60 * 1000;
 
 // Max time to wait for streaming to complete before force shutdown (10 minutes)
 export const MAX_STREAMING_WAIT_MS = 10 * 60 * 1000;
+
+// ============================================
+// PROJECT CREATION LOCK (prevents duplicate sandbox creation)
+// ============================================
+
+// Track in-progress sandbox creation per project
+const projectCreationLocks = new Map<string, { promise: Promise<void>; resolve: () => void }>();
+
+/**
+ * Acquire a lock for project sandbox creation.
+ * If another request is already creating a sandbox for this project,
+ * this will wait until that creation completes.
+ */
+export async function acquireProjectLock(projectId: string): Promise<void> {
+  const existingLock = projectCreationLocks.get(projectId);
+  if (existingLock) {
+    console.log(`[LOCK] Waiting for existing sandbox creation for project ${projectId}`);
+    await existingLock.promise;
+  }
+
+  // Create new lock
+  let resolveFunc: () => void = () => { };
+  const promise = new Promise<void>((resolve) => {
+    resolveFunc = resolve;
+  });
+  projectCreationLocks.set(projectId, { promise, resolve: resolveFunc });
+  console.log(`[LOCK] Acquired lock for project ${projectId}`);
+}
+
+/**
+ * Release the project creation lock.
+ */
+export function releaseProjectLock(projectId: string): void {
+  const lock = projectCreationLocks.get(projectId);
+  if (lock) {
+    lock.resolve();
+    projectCreationLocks.delete(projectId);
+    console.log(`[LOCK] Released lock for project ${projectId}`);
+  }
+}
+

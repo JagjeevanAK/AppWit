@@ -1,10 +1,24 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { BackendUrl } from '@/config';
 
 const HEARTBEAT_INTERVAL = 60000;
 
-export function useSandboxHeartbeat(sandboxId: string | null) {
+/**
+ * Hook to keep sandbox alive via periodic heartbeats.
+ * @param sandboxId - The sandbox ID to keep alive
+ * @param onSandboxDead - Optional callback when sandbox is detected as dead (404 response)
+ */
+export function useSandboxHeartbeat(
+    sandboxId: string | null,
+    onSandboxDead?: () => void
+) {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const onSandboxDeadRef = useRef(onSandboxDead);
+
+    // Keep callback ref updated
+    useEffect(() => {
+        onSandboxDeadRef.current = onSandboxDead;
+    }, [onSandboxDead]);
 
     useEffect(() => {
         if (!sandboxId) {
@@ -14,12 +28,22 @@ export function useSandboxHeartbeat(sandboxId: string | null) {
         const sendHeartbeat = async () => {
             try {
                 const token = localStorage.getItem('auth_token');
-                await fetch(`${BackendUrl}/prompt/refresh/${sandboxId}`, {
+                const response = await fetch(`${BackendUrl}/prompt/refresh/${sandboxId}`, {
                     method: 'POST',
                     headers: token ? {
                         'Authorization': `Bearer ${token}`
                     } : {}
                 });
+
+                // If sandbox not found (killed), notify parent
+                if (response.status === 404) {
+                    console.log('[HEARTBEAT] Sandbox is dead (404), triggering callback');
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                    }
+                    onSandboxDeadRef.current?.();
+                }
             } catch (error) {
                 console.error('Failed to send sandbox heartbeat:', error);
             }
@@ -36,3 +60,4 @@ export function useSandboxHeartbeat(sandboxId: string | null) {
         };
     }, [sandboxId]);
 }
+

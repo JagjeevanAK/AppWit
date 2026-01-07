@@ -62,6 +62,55 @@ import {
 const SANDBOX_TIMEOUT_EXTENSION_MS = 5 * 60 * 1000;
 
 /**
+ * Check if an error indicates the sandbox is no longer running.
+ * E2B throws NotFoundError or TimeoutError when sandbox is dead.
+ */
+function isSandboxDeadError(error: unknown): boolean {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  const name = error instanceof Error ? error.name : '';
+
+  return (
+    name === 'NotFoundError' ||
+    name === 'TimeoutError' ||
+    message.includes('Sandbox is probably not running anymore') ||
+    message.includes('not found') ||
+    message.includes('sandbox timeout')
+  );
+}
+
+/**
+ * Clean up a dead sandbox session.
+ * Called when we detect the sandbox is no longer running.
+ */
+function cleanupDeadSession(sandboxId: string): void {
+  const session = activeSandboxes.get(sandboxId);
+  if (!session) return;
+
+  console.log(`[CLEANUP] Sandbox ${sandboxId} is dead, cleaning up session and timers`);
+
+  // Clear auto-backup timer
+  if (session.autoBackupTimer) {
+    clearInterval(session.autoBackupTimer);
+    session.autoBackupTimer = undefined;
+  }
+
+  // Clear backup debounce timer
+  if (session.backupDebounceTimer) {
+    clearTimeout(session.backupDebounceTimer);
+    session.backupDebounceTimer = undefined;
+  }
+
+  // Remove from active sandboxes
+  activeSandboxes.delete(sandboxId);
+
+  // Remove any pending shutdown
+  pendingShutdowns.delete(sandboxId);
+
+  console.log(`[CLEANUP] ✓ Session ${sandboxId} cleaned up`);
+}
+
+/**
  * Cancel any pending shutdown/backup for the given sandbox.
  * Called when user returns to the project.
  */
@@ -112,33 +161,39 @@ async function extendSandboxTimeout(sandboxId: string): Promise<boolean> {
 
 /**
  * Check if code has changed since last backup.
+ * Returns { changed: boolean, sandboxDead: boolean }
  */
-async function hasCodeChanged(sandboxId: string): Promise<boolean> {
+async function hasCodeChanged(sandboxId: string): Promise<{ changed: boolean; sandboxDead: boolean }> {
   const session = activeSandboxes.get(sandboxId);
-  if (!session) return false;
+  if (!session) return { changed: false, sandboxDead: false };
 
   try {
     const currentHash = await getProjectCodeHash(session.sandbox);
     if (!currentHash) {
       // If we can't get hash, assume code changed to be safe
       console.log(`[BACKUP] Could not get code hash, assuming code changed`);
-      return true;
+      return { changed: true, sandboxDead: false };
     }
 
     if (!session.lastCodeHash) {
       // First backup, no previous hash
       console.log(`[BACKUP] No previous hash, code considered changed`);
-      return true;
+      return { changed: true, sandboxDead: false };
     }
 
     const changed = currentHash !== session.lastCodeHash;
     console.log(
       `[BACKUP] Code hash check: ${changed ? "CHANGED" : "UNCHANGED"} (${currentHash.slice(0, 8)}... vs ${session.lastCodeHash.slice(0, 8)}...)`
     );
-    return changed;
+    return { changed, sandboxDead: false };
   } catch (error) {
+    // Check if sandbox is dead
+    if (isSandboxDeadError(error)) {
+      console.log(`[BACKUP] Sandbox ${sandboxId} is dead, triggering cleanup`);
+      return { changed: false, sandboxDead: true };
+    }
     console.error(`[BACKUP] Error checking code hash:`, error);
-    return true; // Assume changed on error
+    return { changed: true, sandboxDead: false }; // Assume changed on other errors
   }
 }
 
@@ -359,7 +414,14 @@ async function executeBackupAndShutdown(
   }
 
   // Check if code has changed since last backup
-  const codeChanged = await hasCodeChanged(sandboxId);
+  const { changed: codeChanged, sandboxDead } = await hasCodeChanged(sandboxId);
+
+  // If sandbox is already dead, just clean up
+  if (sandboxDead) {
+    console.log(`[SHUTDOWN] Sandbox already dead, cleaning up`);
+    cleanupDeadSession(sandboxId);
+    return;
+  }
 
   if (codeChanged) {
     console.log(`[SHUTDOWN] Code changed, performing backup...`);
@@ -549,7 +611,13 @@ async function runAutoBackup(sandboxId: string): Promise<void> {
   }
 
   // Check if code has changed
-  const codeChanged = await hasCodeChanged(sandboxId);
+  const { changed: codeChanged, sandboxDead } = await hasCodeChanged(sandboxId);
+
+  // If sandbox is dead, clean up and stop the timer
+  if (sandboxDead) {
+    cleanupDeadSession(sandboxId);
+    return;
+  }
 
   if (!codeChanged) {
     console.log(`[AUTO-BACKUP] Code unchanged, skipping backup`);
@@ -564,7 +632,17 @@ async function runAutoBackup(sandboxId: string): Promise<void> {
   }
 
   console.log(`[AUTO-BACKUP] Code changed, starting backup...`);
-  await performBackup(sandboxId, projectId, userId);
+  try {
+    await performBackup(sandboxId, projectId, userId);
+  } catch (backupError) {
+    // Check if sandbox died during backup
+    if (isSandboxDeadError(backupError)) {
+      console.log(`[AUTO-BACKUP] Sandbox died during backup, cleaning up`);
+      cleanupDeadSession(sandboxId);
+    } else {
+      console.error(`[AUTO-BACKUP] Backup failed:`, backupError);
+    }
+  }
 }
 
 /**

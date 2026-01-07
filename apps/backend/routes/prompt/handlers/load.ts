@@ -57,7 +57,7 @@ import { Sandbox } from "e2b";
 import { prisma } from "@/lib/prisma";
 import type { AuthRequest } from "@/middleware/auth";
 import { initializeR2ForSandbox, isR2Configured } from "@/lib/r2";
-import { activeSandboxes } from "@/routes/session";
+import { activeSandboxes, acquireProjectLock, releaseProjectLock } from "@/routes/session";
 import {
   cancelPendingShutdown,
   initializeCodeHash,
@@ -138,85 +138,114 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
       }
     }
 
-    console.log(`[LOAD] Creating new sandbox for project ${projectId}`);
-    const sandbox = await Sandbox.create(TEMPLATE_ID!, {
-      timeoutMs: 300_000,
-    });
+    // Acquire lock to prevent race condition with concurrent requests
+    await acquireProjectLock(projectId);
 
-    const host = sandbox.getHost(parseInt(SANDBOX_PORT!));
-    const sandboxUrl = `https://${host}`;
-    const sandboxId = sandbox.sandboxId;
+    let sandbox;
+    let sandboxUrl: string;
+    let sandboxId: string;
 
-    let restored = false;
-    if (isR2Configured()) {
-      const shouldRestore = !!project.r2BackupPath;
-      console.log(
-        `[LOAD] Initializing R2 for project ${projectId} (shouldRestore: ${shouldRestore})`
-      );
-      const result = await initializeR2ForSandbox(
-        sandbox,
-        userId,
-        projectId,
-        shouldRestore
-      );
-      restored = result.restored;
-      if (result.mounted) {
-        console.log(
-          `[LOAD] R2 initialized${restored ? ", project restored from backup" : ", no backup to restore"}`
-        );
-      }
-
-      if (restored) {
-        console.log(`[LOAD] Running bun install to restore dependencies...`);
-        try {
-          const bunResult = await sandbox.commands.run(
-            "cd /home/user && bun install 2>&1",
-            { timeoutMs: 180000 }
+    try {
+      // Double-check after acquiring lock (another request may have created sandbox while waiting)
+      for (const [existingSandboxId, session] of activeSandboxes) {
+        if (session.projectId === projectId) {
+          console.log(
+            `[LOAD] Sandbox ${existingSandboxId} was created while waiting for lock, reusing`
           );
-
-          if (bunResult.exitCode === 0) {
-            console.log(`[LOAD] ✓ Dependencies installed successfully`);
-          } else {
-            console.error(
-              `[LOAD] ✗ bun install failed with exit code ${bunResult.exitCode}`
-            );
-            console.error(`[LOAD] stdout:`, bunResult.stdout.slice(-500));
-            console.error(`[LOAD] stderr:`, bunResult.stderr.slice(-500));
-          }
-        } catch (bunError) {
-          console.error(`[LOAD] Error running bun install:`, bunError);
+          releaseProjectLock(projectId);
+          cancelPendingShutdown(existingSandboxId);
+          return res.json({
+            sandboxId: existingSandboxId,
+            sandboxUrl: session.sandboxUrl,
+            restored: false,
+            message: "Using existing sandbox",
+          });
         }
       }
+
+      console.log(`[LOAD] Creating new sandbox for project ${projectId}`);
+      sandbox = await Sandbox.create(TEMPLATE_ID!, {
+        timeoutMs: 300_000,
+      });
+
+      const host = sandbox.getHost(parseInt(SANDBOX_PORT!));
+      sandboxUrl = `https://${host}`;
+      sandboxId = sandbox.sandboxId;
+
+      let restored = false;
+      if (isR2Configured()) {
+        const shouldRestore = !!project.r2BackupPath;
+        console.log(
+          `[LOAD] Initializing R2 for project ${projectId} (shouldRestore: ${shouldRestore})`
+        );
+        const result = await initializeR2ForSandbox(
+          sandbox,
+          userId,
+          projectId,
+          shouldRestore
+        );
+        restored = result.restored;
+        if (result.mounted) {
+          console.log(
+            `[LOAD] R2 initialized${restored ? ", project restored from backup" : ", no backup to restore"}`
+          );
+        }
+
+        if (restored) {
+          console.log(`[LOAD] Running bun install to restore dependencies...`);
+          try {
+            const bunResult = await sandbox.commands.run(
+              "cd /home/user && bun install 2>&1",
+              { timeoutMs: 180000 }
+            );
+
+            if (bunResult.exitCode === 0) {
+              console.log(`[LOAD] ✓ Dependencies installed successfully`);
+            } else {
+              console.error(
+                `[LOAD] ✗ bun install failed with exit code ${bunResult.exitCode}`
+              );
+              console.error(`[LOAD] stdout:`, bunResult.stdout.slice(-500));
+              console.error(`[LOAD] stderr:`, bunResult.stderr.slice(-500));
+            }
+          } catch (bunError) {
+            console.error(`[LOAD] Error running bun install:`, bunError);
+          }
+        }
+      }
+
+      const chatId = await getOrCreateChat(projectId);
+
+      activeSandboxes.set(sandboxId, {
+        sandbox,
+        messages: [],
+        sandboxUrl,
+        projectId,
+        chatId,
+        userId,
+        createdAt: new Date(),
+      });
+
+      // Initialize code hash for backup change detection
+      await initializeCodeHash(sandboxId);
+
+      // Start auto-backup timer (backs up every 1 min if code changed)
+      startAutoBackup(sandboxId);
+
+      console.log(`[LOAD] Sandbox ${sandboxId} ready for project ${projectId}`);
+
+      res.json({
+        sandboxId,
+        sandboxUrl,
+        restored,
+        message: restored
+          ? "Project restored from backup"
+          : "New sandbox created",
+      });
+    } finally {
+      // Always release the lock
+      releaseProjectLock(projectId);
     }
-
-    const chatId = await getOrCreateChat(projectId);
-
-    activeSandboxes.set(sandboxId, {
-      sandbox,
-      messages: [],
-      sandboxUrl,
-      projectId,
-      chatId,
-      userId,
-      createdAt: new Date(),
-    });
-
-    // Initialize code hash for backup change detection
-    await initializeCodeHash(sandboxId);
-
-    // Start auto-backup timer (backs up every 1 min if code changed)
-    startAutoBackup(sandboxId);
-
-    console.log(`[LOAD] Sandbox ${sandboxId} ready for project ${projectId}`);
-
-    res.json({
-      sandboxId,
-      sandboxUrl,
-      restored,
-      message: restored
-        ? "Project restored from backup"
-        : "New sandbox created",
-    });
   } catch (error) {
     console.error("[LOAD] Error loading project:", error);
     res.status(500).json({ error: "Failed to load project" });
