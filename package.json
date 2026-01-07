@@ -14,7 +14,7 @@
     "devDependencies": {
         "baseline-browser-mapping": "^2.8.32",
         "prettier": "^3.6.2",
-        "turbo": "^2.6.3",
+        "turbo": "^2.7.3",
         "typescript": "5.9.2"
     },
     "engines": {
