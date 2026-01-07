@@ -83,7 +83,7 @@ import {
     createThemeApplicatorNode,
     createCommandHandlerNode,
     createWriterNode,
-    reviewerNode,
+    createReviewerNode,
     shouldRetry
 } from "./nodes";
 
@@ -94,6 +94,7 @@ function createGraph(sandbox: Sandbox) {
     const themeApplicator = createThemeApplicatorNode(sandbox);
     const commandHandler = createCommandHandlerNode(sandbox);
     const writer = createWriterNode(sandbox);
+    const reviewer = createReviewerNode(sandbox);
 
     const graph = new StateGraph(GraphState)
         // Nodes
@@ -102,7 +103,7 @@ function createGraph(sandbox: Sandbox) {
         .addNode("themeApplicator", themeApplicator)
         .addNode("commandHandler", commandHandler)
         .addNode("writer", writer)
-        .addNode("reviewer", reviewerNode)
+        .addNode("reviewer", reviewer)
         // Edges - flow with planner and reviewer
         .addEdge(START, "planner")
         .addEdge("planner", "codegen")

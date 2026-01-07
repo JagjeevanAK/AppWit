@@ -46,20 +46,22 @@ export interface StreamConfig extends LangGraphRunnableConfig {
 // Event types for streaming
 export interface StreamEvent {
   type:
-    | "planning"
-    | "plan_complete"
-    | "generating"
-    | "file_started"
-    | "file_created"
-    | "executing"
-    | "stdout"
-    | "stderr"
-    | "reviewing"
-    | "review_complete"
-    | "retrying"
-    | "completed"
-    | "error"
-    | "done";
+  | "planning"
+  | "plan_complete"
+  | "generating"
+  | "file_started"
+  | "file_created"
+  | "executing"
+  | "stdout"
+  | "stderr"
+  | "reviewing"
+  | "review_complete"
+  | "retrying"
+  | "completed"
+  | "error"
+  | "done"
+  | "cleanup"
+  | "file_removed";
   message?: string;
   filePath?: string;
   plan?: Plan;

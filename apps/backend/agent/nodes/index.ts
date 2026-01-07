@@ -11,4 +11,4 @@ export { coderNode } from './coder';
 export { createThemeApplicatorNode } from './themeApplicator';
 export { createCommandHandlerNode } from './commandHandler';
 export { createWriterNode } from './writer';
-export { reviewerNode, shouldRetry } from './reviewer';
+export { createReviewerNode, shouldRetry } from './reviewer';
