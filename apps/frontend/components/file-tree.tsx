@@ -114,20 +114,33 @@ function FileTreeItem({
   searchQuery = "",
 }: FileTreeItemProps) {
   // Auto-expand folders that contain the active file
-  const shouldAutoExpand = useMemo(() => {
+  const containsActiveFile = useMemo(() => {
     return folderContainsActiveFile(node, activeId);
   }, [node, activeId]);
 
-  const [isExpanded, setIsExpanded] = useState(shouldAutoExpand);
+  // Track if user has manually toggled this folder
+  const [userToggled, setUserToggled] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(containsActiveFile);
+
+  // Track the previous activeId to detect when it changes
+  const prevActiveIdRef = React.useRef(activeId);
+
+  // Only auto-expand when activeId changes to a file inside this folder
+  // Don't auto-expand on every re-render/refresh if user manually collapsed it
+  React.useEffect(() => {
+    const activeIdChanged = prevActiveIdRef.current !== activeId;
+    prevActiveIdRef.current = activeId;
+
+    // Only auto-expand if activeId changed and this folder contains the new active file
+    // Respect user's manual toggle otherwise
+    if (activeIdChanged && containsActiveFile && !isExpanded) {
+      setIsExpanded(true);
+      setUserToggled(false); // Reset user toggle when we auto-expand for new active file
+    }
+  }, [activeId, containsActiveFile, isExpanded]);
+
   const isActive = activeId === node.id;
   const isFolder = node.kind === "folder";
-
-  // Update expansion state when active file changes
-  React.useEffect(() => {
-    if (shouldAutoExpand && !isExpanded) {
-      setIsExpanded(true);
-    }
-  }, [shouldAutoExpand, isExpanded]);
 
   const shouldShow = nodeMatchesSearch(node, searchQuery);
 

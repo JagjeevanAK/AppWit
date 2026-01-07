@@ -2,6 +2,7 @@
 
 import type { Request, Response } from "express";
 import { activeSandboxes } from "@/routes/session";
+import { prisma } from "@/lib/prisma";
 
 export async function handleDownload(req: Request, res: Response) {
   const sandboxId = req.params.sandboxId;
@@ -17,7 +18,24 @@ export async function handleDownload(req: Request, res: Response) {
   }
 
   try {
-    const { sandbox } = session;
+    const { sandbox, projectId } = session;
+
+    // Fetch project name for the zip filename
+    let projectName = "project";
+    if (projectId) {
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { name: true },
+      });
+      if (project?.name) {
+        // Sanitize project name for filename (remove special characters)
+        projectName = project.name
+          .replace(/[^a-zA-Z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .toLowerCase()
+          .slice(0, 50);
+      }
+    }
 
     const excludePatterns = [
       // Directories (same as frontend file tree)
@@ -36,6 +54,7 @@ export async function handleDownload(req: Request, res: Response) {
       ".yarn",
       ".bun",
       ".e2b",
+      ".log",
       // Files (same as frontend file tree)
       ".bash_logout",
       ".bashrc",
@@ -59,7 +78,7 @@ export async function handleDownload(req: Request, res: Response) {
       .map((p) => `-x '${p}' -x '${p}/*'`)
       .join(" ");
 
-    const zipFileName = `project-${Date.now()}.zip`;
+    const zipFileName = `${projectName}.zip`;
     const createZipCmd = `cd /home/user && zip -qr /tmp/${zipFileName} . ${excludeArgs}`;
 
     console.log(`[DOWNLOAD] Creating zip archive`);
@@ -72,7 +91,10 @@ export async function handleDownload(req: Request, res: Response) {
         .json({ error: "Failed to create project archive" });
     }
 
-    const zipContent = await sandbox.files.read(`/tmp/${zipFileName}`);
+    // Read the ZIP file as binary data to prevent corruption
+    const zipContent = await sandbox.files.read(`/tmp/${zipFileName}`, {
+      format: "bytes",
+    });
 
     await sandbox.commands.run(`rm /tmp/${zipFileName}`);
 
@@ -82,11 +104,8 @@ export async function handleDownload(req: Request, res: Response) {
       `attachment; filename="${zipFileName}"`
     );
 
-    if (typeof zipContent === "string") {
-      res.send(Buffer.from(zipContent, "binary"));
-    } else {
-      res.send(zipContent);
-    }
+    // zipContent is now a Uint8Array when format: "bytes" is used
+    res.send(Buffer.from(zipContent as Uint8Array));
 
     console.log(
       `[DOWNLOAD] Project downloaded successfully for sandbox ${sandboxId}`
