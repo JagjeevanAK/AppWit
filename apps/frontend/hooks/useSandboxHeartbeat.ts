@@ -3,16 +3,17 @@ import { BackendUrl } from '@/config';
 
 const HEARTBEAT_INTERVAL = 60000;
 
-/**
- * Hook to keep sandbox alive via periodic heartbeats.
- * @param sandboxId - The sandbox ID to keep alive
- * @param onSandboxDead - Optional callback when sandbox is detected as dead (404 response)
- */
+interface UseSandboxHeartbeatOptions {
+    onSandboxDead?: () => void;
+}
+
 export function useSandboxHeartbeat(
     sandboxId: string | null,
-    onSandboxDead?: () => void
+    options: UseSandboxHeartbeatOptions = {}
 ) {
+    const { onSandboxDead } = options;
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const isResurrectingRef = useRef(false);
     const onSandboxDeadRef = useRef(onSandboxDead);
 
     // Keep callback ref updated
@@ -20,12 +21,24 @@ export function useSandboxHeartbeat(
         onSandboxDeadRef.current = onSandboxDead;
     }, [onSandboxDead]);
 
+    // Reset resurrection flag when sandboxId changes (new sandbox available)
+    useEffect(() => {
+        if (sandboxId) {
+            isResurrectingRef.current = false;
+        }
+    }, [sandboxId]);
+
     useEffect(() => {
         if (!sandboxId) {
             return;
         }
 
         const sendHeartbeat = async () => {
+            // Skip if we're already resurrecting
+            if (isResurrectingRef.current) {
+                return;
+            }
+
             try {
                 const token = localStorage.getItem('auth_token');
                 const response = await fetch(`${BackendUrl}/prompt/refresh/${sandboxId}`, {
@@ -35,14 +48,23 @@ export function useSandboxHeartbeat(
                     } : {}
                 });
 
-                // If sandbox not found (killed), notify parent
+                // Sandbox was killed - trigger resurrection
                 if (response.status === 404) {
-                    console.log('[HEARTBEAT] Sandbox is dead (404), triggering callback');
-                    if (intervalRef.current) {
-                        clearInterval(intervalRef.current);
-                        intervalRef.current = null;
+                    console.log('[HEARTBEAT] Sandbox not found (404), triggering resurrection');
+
+                    // Prevent multiple resurrection attempts
+                    if (!isResurrectingRef.current) {
+                        isResurrectingRef.current = true;
+
+                        // Clear the heartbeat interval
+                        if (intervalRef.current) {
+                            clearInterval(intervalRef.current);
+                            intervalRef.current = null;
+                        }
+
+                        // Trigger resurrection callback
+                        onSandboxDeadRef.current?.();
                     }
-                    onSandboxDeadRef.current?.();
                 }
             } catch (error) {
                 console.error('Failed to send sandbox heartbeat:', error);

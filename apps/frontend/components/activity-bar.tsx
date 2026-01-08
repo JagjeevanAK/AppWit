@@ -42,7 +42,7 @@ export default function ActivityBar({
   onViewChange,
 }: ActivityBarProps) {
   return (
-    <div className="w-12 h-full bg-[#333333] flex flex-col items-center py-1 border-r border-[#252526]">
+    <div className="w-12 h-full bg-muted flex flex-col items-center py-1 border-r border-border">
       {/* Top icons */}
       <div className="flex flex-col">
         <ActivityItem

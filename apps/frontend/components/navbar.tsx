@@ -77,9 +77,9 @@ export default function Navbar() {
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-black border border-white/10 rounded-xl shadow-2xl overflow-hidden">
                   {/* User Info */}
-                  <div className="px-4 py-3 border-b border-white/10">
+                  <div className="px-4 py-3">
                     <p className="text-sm font-medium text-white truncate">
                       {user.name || "User"}
                     </p>
@@ -138,13 +138,13 @@ export default function Navbar() {
                   </div>
 
                   {/* Logout */}
-                  <div className="border-t border-white/10 py-1">
+                  <div className="py-1">
                     <button
                       onClick={() => {
                         setIsDropdownOpen(false);
                         signout();
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-3"
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-3"
                     >
                       <svg
                         className="w-4 h-4"

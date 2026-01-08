@@ -3,6 +3,7 @@
 import { Suspense } from "react"
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Loader } from "@/components/ui/loader"
 
 function AuthCallbackContent() {
     const router = useRouter()
@@ -40,8 +41,8 @@ function AuthCallbackContent() {
     }, [router, searchParams])
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-[#1D1D1D]">
-            <div className="text-white">Signing in...</div>
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <Loader size="lg" text="Signing in..." />
         </div>
     )
 }
@@ -49,8 +50,8 @@ function AuthCallbackContent() {
 export default function AuthCallback() {
     return (
         <Suspense fallback={
-            <div className="flex min-h-screen items-center justify-center bg-[#1D1D1D]">
-                <div className="text-white">Signing in...</div>
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <Loader size="lg" text="Signing in..." />
             </div>
         }>
             <AuthCallbackContent />

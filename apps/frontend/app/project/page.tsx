@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BackendUrl } from "@/config";
 import { useAuth } from "@/hooks/useAuth";
+import { Loader } from "@/components/ui/loader";
 
 export default function ProjectLanding() {
     const router = useRouter();
@@ -107,23 +108,23 @@ export default function ProjectLanding() {
 
     if (authLoading) {
         return (
-            <div className="h-screen w-screen bg-[#1D1D1D] flex items-center justify-center">
-                <div className="text-white text-xl">Loading...</div>
+            <div className="h-screen w-screen bg-background flex items-center justify-center">
+                <Loader size="lg" text="Loading..." />
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div className="h-screen w-screen bg-[#1D1D1D] flex items-center justify-center">
-                <div className="text-white text-xl">Redirecting to login...</div>
+            <div className="h-screen w-screen bg-background flex items-center justify-center">
+                <Loader size="lg" text="Redirecting to login..." />
             </div>
         );
     }
 
     return (
-        <div className="h-screen w-screen bg-[#1D1D1D] flex items-center justify-center">
-            <div className="text-white text-xl">{status}</div>
+        <div className="h-screen w-screen bg-background flex items-center justify-center">
+            <Loader size="lg" text={status} />
         </div>
     );
 }

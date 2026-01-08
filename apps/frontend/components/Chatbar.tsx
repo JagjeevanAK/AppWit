@@ -30,12 +30,14 @@ interface ChatBarProps {
   };
   initialPrompt?: string | null;
   initialMessages?: Message[];
+  initialTheme?: string | null;
 }
 
 export default function ChatBar({
   streamState,
   initialPrompt,
   initialMessages,
+  initialTheme,
 }: ChatBarProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages || []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,19 +78,24 @@ export default function ChatBar({
   }, [initialMessages, messages.length]);
 
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, theme?: string) => {
       setMessages((prev) => [...prev, { content: message, type: "user" }]);
 
       setIsWaitingForResponse(true);
       shouldSaveMessageRef.current = true;
       currentToolCallsRef.current = [];
 
+      let promptToSend = message;
+      if (theme) {
+        promptToSend += `\n\nIMPORTANT: The user has explicitly selected the '${theme}' theme. Please apply this theme.`;
+      }
+
       try {
         if (sandboxId) {
           console.log("Continuing conversation in sandbox:", sandboxId);
-          await continueStream(message, sandboxId);
+          await continueStream(promptToSend, sandboxId);
         } else {
-          await startStream(message);
+          await startStream(promptToSend);
         }
         setIsWaitingForResponse(false);
       } catch (err) {
@@ -104,10 +111,10 @@ export default function ChatBar({
     if (initialPrompt && !hasProcessedInitialPrompt.current) {
       hasProcessedInitialPrompt.current = true;
       setTimeout(() => {
-        handleSendMessage(initialPrompt);
+        handleSendMessage(initialPrompt, initialTheme || undefined);
       }, 0);
     }
-  }, [initialPrompt, handleSendMessage]);
+  }, [initialPrompt, initialTheme, handleSendMessage]);
 
   useEffect(() => {
     if (
@@ -165,14 +172,14 @@ export default function ChatBar({
   };
 
   return (
-    <div className="h-full w-full bg-[#1D1D1D] pr-2 text-white flex flex-col">
+    <div className="h-full w-full bg-sidebar pr-2 text-foreground flex flex-col">
       <div className="grow overflow-auto p-3 space-y-3 min-h-[400px]">
         {messages.map((message, index) =>
           message.type === "user" ? (
             <div key={index} className="flex justify-end">
-              <div className="bg-[#282825] rounded-2xl px-2 py-2 text-white max-w-[80%]">
+              <div className="bg-white rounded-2xl px-3 py-2 text-black max-w-[80%]">
                 {shouldTruncate(message.content) &&
-                !expandedMessages.has(index) ? (
+                  !expandedMessages.has(index) ? (
                   <div>
                     <MarkdownRenderer
                       markdown={getTruncatedContent(message.content)}
@@ -273,7 +280,7 @@ export default function ChatBar({
         <div ref={messagesEndRef} />
       </div>
       <div className="shrink-0 p-2">
-        <InputBox onSendMessage={handleSendMessage} />
+        <InputBox onSendMessage={handleSendMessage} hideThemeButton />
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function Breadcrumbs({
 }: BreadcrumbsProps) {
   if (!filePath) {
     return (
-      <div className="h-[22px] bg-[#1E1E1E] border-b border-[#2B2B2C] px-3 flex items-center">
+      <div className="h-[22px] bg-background border-b border-border px-3 flex items-center">
         <span className="text-xs text-gray-500">No file selected</span>
       </div>
     );
@@ -30,7 +30,7 @@ export default function Breadcrumbs({
   const folders = segments.slice(0, -1);
 
   return (
-    <div className="h-[22px] bg-[#1E1E1E] border-b border-[#2B2B2C] px-3 flex items-center overflow-x-auto">
+    <div className="h-[22px] bg-background border-b border-border px-3 flex items-center overflow-x-auto">
       <div className="flex items-center gap-0.5 text-xs">
         {folders.map((folder, index) => {
           const pathUpToHere = segments.slice(0, index + 1).join("/");
@@ -39,7 +39,7 @@ export default function Breadcrumbs({
               <button
                 onClick={() => onNavigate?.(pathUpToHere)}
                 className={cn(
-                  "flex items-center gap-1 px-1 py-0.5 rounded hover:bg-[#2A2D2E] text-gray-400 hover:text-white transition-colors"
+                  "flex items-center gap-1 px-1 py-0.5 rounded hover:bg-popover text-muted-foreground hover:text-foreground transition-colors"
                 )}
               >
                 <FileIcon filename={folder} isFolder size={14} />

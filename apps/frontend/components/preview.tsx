@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader } from "@/components/ui/loader";
 
 interface PreviewProps {
     preview_url: string | null;
@@ -37,16 +38,14 @@ export default function Preview({ preview_url, isStreaming = false }: PreviewPro
 
     if (!displayUrl) {
         return (
-            <div className="w-full h-full flex items-center justify-center bg-[#1D1D1D] rounded-2xl border border-[#2B2B2C]">
+            <div className="w-full h-full flex items-center justify-center bg-background rounded-2xl border border-border">
                 <div className="text-center space-y-4">
-                    <div className="flex justify-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-                    </div>
+                    <Loader size="lg" />
                     <div className="space-y-2">
-                        <p className="text-white text-lg font-medium">
+                        <p className="text-foreground text-lg font-medium">
                             {isStreaming ? "Generating code..." : "Waiting for code generation..."}
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-muted-foreground text-sm">
                             The AI is creating your application
                         </p>
                     </div>
@@ -71,14 +70,12 @@ export default function Preview({ preview_url, isStreaming = false }: PreviewPro
         <div className="w-full h-full relative">
             {/* Loading overlay - shown while iframe is loading */}
             {isIframeLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1D1D1D] rounded-2xl border border-[#2B2B2C] z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-background rounded-2xl border border-border z-10">
                     <div className="text-center space-y-4">
-                        <div className="flex justify-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-                        </div>
+                        <Loader size="lg" />
                         <div className="space-y-2">
-                            <p className="text-white text-lg font-medium">Loading preview...</p>
-                            <p className="text-gray-400 text-sm">Your application is starting up</p>
+                            <p className="text-foreground text-lg font-medium">Loading preview...</p>
+                            <p className="text-muted-foreground text-sm">Your application is starting up</p>
                         </div>
                     </div>
                 </div>
@@ -86,16 +83,16 @@ export default function Preview({ preview_url, isStreaming = false }: PreviewPro
 
             {/* Error overlay */}
             {iframeError && !isIframeLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1D1D1D] rounded-2xl border border-[#2B2B2C] z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-background rounded-2xl border border-border z-10">
                     <div className="text-center space-y-4">
-                        <p className="text-white text-lg font-medium">Preview unavailable</p>
-                        <p className="text-gray-400 text-sm">The sandbox may be starting up. Please wait...</p>
+                        <p className="text-foreground text-lg font-medium">Preview unavailable</p>
+                        <p className="text-muted-foreground text-sm">The sandbox may be starting up. Please wait...</p>
                         <button
                             onClick={() => {
                                 setIsIframeLoading(true);
                                 setIframeError(false);
                             }}
-                            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                            className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-foreground rounded-lg transition-colors"
                         >
                             Retry
                         </button>

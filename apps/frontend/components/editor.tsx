@@ -338,7 +338,7 @@ export default function CodeEditor({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1E1E1E] rounded-2xl overflow-hidden">
+    <div className="h-full flex flex-col bg-card rounded-2xl overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {activeTab === "preview" ? (
@@ -349,11 +349,11 @@ export default function CodeEditor({
             <ResizablePanelGroup direction="horizontal" className="flex-1">
               {/* Sidebar */}
               <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-                <div className="h-full flex flex-col bg-[#252526]">
+                <div className="h-full flex flex-col bg-card">
                   {isLoadingFiles ? (
-                    <div className="h-full flex items-center justify-center text-gray-400">
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
                       <div className="text-center space-y-2">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-border border-t-primary mx-auto"></div>
                         <p className="text-sm">Loading files...</p>
                       </div>
                     </div>
@@ -384,7 +384,7 @@ export default function CodeEditor({
               <ResizablePanel defaultSize={80} minSize={50}>
                 <div className="h-full flex flex-col">
                   {/* Tabs Bar */}
-                  <div className="flex items-center bg-[#252526] border-b border-[#3C3C3C] overflow-x-auto min-h-[35px]">
+                  <div className="flex items-center bg-card border-b border-border overflow-x-auto min-h-[35px]">
                     {openTabs.length > 0 ? (
                       openTabs.map((tabId) => {
                         const tabFile = findFileById(files, tabId);
@@ -397,10 +397,10 @@ export default function CodeEditor({
                             key={tabId}
                             onClick={() => setActiveFileId(tabId)}
                             className={cn(
-                              "flex items-center gap-2 px-3 h-[35px] text-[13px] cursor-pointer border-r border-[#252526] group min-w-fit transition-colors",
+                              "flex items-center gap-2 px-3 h-[35px] text-[13px] cursor-pointer border-r border-card group min-w-fit transition-colors",
                               isActive
-                                ? "bg-[#1E1E1E] text-white border-t-2 border-t-[#007ACC]"
-                                : "bg-[#2D2D2D] text-gray-400 hover:bg-[#2D2D2D]/80 border-t-2 border-t-transparent"
+                                ? "bg-background text-foreground border-t-2 border-t-primary"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80 border-t-2 border-t-transparent"
                             )}
                           >
                             <FileIcon filename={tabFile.name} size={16} />
@@ -410,7 +410,7 @@ export default function CodeEditor({
                             <button
                               onClick={(e) => handleTabClose(tabId, e)}
                               className={cn(
-                                "shrink-0 hover:bg-[#3C3C3C] rounded p-0.5 transition-opacity",
+                                "shrink-0 hover:bg-muted rounded p-0.5 transition-opacity",
                                 isActive
                                   ? "opacity-100"
                                   : "opacity-0 group-hover:opacity-100"
@@ -446,7 +446,7 @@ export default function CodeEditor({
                           fontSize: 14,
                           fontFamily:
                             "'Fira Code', 'Cascadia Code', Consolas, monospace",
-                          minimap: { enabled: true, scale: 1 },
+                          minimap: { enabled: false },
                           wordWrap: "on",
                           automaticLayout: true,
                           scrollBeyondLastLine: false,
@@ -463,7 +463,7 @@ export default function CodeEditor({
                           padding: { top: 8 },
                         }}
                         loading={
-                          <div className="h-full flex items-center justify-center bg-[#1E1E1E]">
+                          <div className="h-full flex items-center justify-center bg-background">
                             <div className="animate-pulse text-gray-400">
                               Loading content...
                             </div>
@@ -475,9 +475,9 @@ export default function CodeEditor({
 
                   {/* Empty State */}
                   {!activeFile && openTabs.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-500 bg-[#1E1E1E]">
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground bg-background">
                       <div className="text-center space-y-4">
-                        <div className="text-6xl opacity-20">{}</div>
+                        <div className="text-6xl opacity-20">{ }</div>
                         <p className="text-lg">No file selected</p>
                         <p className="text-sm text-gray-600">
                           Select a file from the explorer to view its contents
@@ -491,18 +491,6 @@ export default function CodeEditor({
           </>
         )}
       </div>
-
-      {/* Status Bar */}
-      {activeTab === "code" && (
-        <StatusBar
-          fileName={activeFile?.name}
-          language={activeLanguageDisplay}
-          line={cursorPosition.line}
-          column={cursorPosition.column}
-          isStreaming={isStreaming}
-          sandboxId={sandboxId}
-        />
-      )}
     </div>
   );
 }
