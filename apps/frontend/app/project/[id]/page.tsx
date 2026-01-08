@@ -11,7 +11,7 @@ import { useStream } from "@/hooks/useStream";
 import { useParams, useRouter } from "next/navigation";
 import { useSandboxHeartbeat } from "@/hooks/useSandboxHeartbeat";
 import { useProject } from "@/hooks/useProject";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { BackendUrl } from "@/config";
 import { ImperativePanelHandle } from "react-resizable-panels";
 import ProjectNav from "@/components/project-nav";
@@ -45,8 +45,48 @@ export default function ProjectPage() {
   const hasLoadedExistingProject = useRef(false);
   const [loadingStatus, setLoadingStatus] =
     useState<string>("Loading project...");
+  const [isResurrecting, setIsResurrecting] = useState(false);
 
-  useSandboxHeartbeat(streamState.sandboxId);
+  // Handle sandbox resurrection when it gets killed while page is open
+  const handleSandboxResurrection = useCallback(async () => {
+    if (isResurrecting) {
+      console.log("[PAGE] Already resurrecting, skipping");
+      return;
+    }
+
+    console.log("[PAGE] Sandbox died, attempting resurrection...");
+    setIsResurrecting(true);
+    setLoadingStatus("Reconnecting to sandbox...");
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      const loadResponse = await fetch(`${BackendUrl}/prompt/load/${projectId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (loadResponse.ok) {
+        const data = await loadResponse.json();
+        console.log("[PAGE] Sandbox resurrected:", data);
+        if (data.sandboxUrl && data.sandboxId) {
+          streamState.setSandbox(data.sandboxUrl, data.sandboxId);
+        }
+      } else {
+        console.error("[PAGE] Failed to resurrect sandbox:", loadResponse.status);
+      }
+    } catch (err) {
+      console.error("[PAGE] Error resurrecting sandbox:", err);
+    } finally {
+      setIsResurrecting(false);
+    }
+  }, [projectId, isResurrecting, streamState]);
+
+  useSandboxHeartbeat(streamState.sandboxId, {
+    onSandboxDead: handleSandboxResurrection,
+  });
 
   // Handle initial prompt or load existing project
   useEffect(() => {
