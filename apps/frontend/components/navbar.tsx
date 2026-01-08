@@ -77,7 +77,7 @@ export default function Navbar() {
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-xl shadow-xl overflow-hidden">
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-white/10">
                     <p className="text-sm font-medium text-white truncate">

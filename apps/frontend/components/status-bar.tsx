@@ -26,7 +26,7 @@ export default function StatusBar({
   sandboxId,
 }: StatusBarProps) {
   return (
-    <div className="h-[22px] bg-[#007ACC] flex items-center justify-between px-2 text-white text-xs select-none">
+    <div className="h-[22px] bg-primary flex items-center justify-between px-2 text-primary-foreground text-xs select-none">
       {/* Left side */}
       <div className="flex items-center gap-3">
         {/* Git branch (placeholder) */}

@@ -15,6 +15,7 @@ import { useEffect, useState, useRef } from "react";
 import { BackendUrl } from "@/config";
 import { ImperativePanelHandle } from "react-resizable-panels";
 import ProjectNav from "@/components/project-nav";
+import { Loader } from "@/components/ui/loader";
 
 interface ChatMessage {
   content: string;
@@ -271,8 +272,8 @@ export default function ProjectPage() {
   // Show loader while project data is loading
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-[#1E1E1E] flex items-center justify-center">
-        <div className="text-white text-xl">Loading project...</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <Loader size="lg" text="Loading project..." />
       </div>
     );
   }
@@ -284,31 +285,28 @@ export default function ProjectPage() {
   // Show full-page loader during initial orchestration or project loading
   if (!isInitialOrchestrationComplete) {
     return (
-      <div className="h-screen w-screen bg-[#1E1E1E] flex flex-col items-center justify-center gap-6">
+      <div className="h-screen w-screen bg-background flex flex-col items-center justify-center gap-6">
         {/* Loading animation */}
-        <div className="relative w-20 h-20">
-          <div className="absolute inset-0 border-4 border-[#3C3C3C] rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-transparent border-t-[#007ACC] rounded-full animate-spin"></div>
-        </div>
+        <Loader size="lg" />
 
         {/* Status text */}
         <div className="text-center space-y-2">
-          <div className="text-white text-xl font-medium">{loadingStatus}</div>
-          <div className="text-gray-400 text-sm">This may take a moment...</div>
+          <div className="text-foreground text-xl font-medium">{loadingStatus}</div>
+          <div className="text-muted-foreground text-sm">This may take a moment...</div>
         </div>
 
         {/* Progress dots */}
         <div className="flex space-x-2">
           <div
-            className="w-2 h-2 bg-[#007ACC] rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "0ms" }}
           ></div>
           <div
-            className="w-2 h-2 bg-[#007ACC] rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "150ms" }}
           ></div>
           <div
-            className="w-2 h-2 bg-[#007ACC] rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "300ms" }}
           ></div>
         </div>
@@ -323,31 +321,28 @@ export default function ProjectPage() {
   // Show full-page loader during initial orchestration or project loading
   if (!isInitialOrchestrationComplete) {
     return (
-      <div className="h-screen w-screen bg-[#1D1D1D] flex flex-col items-center justify-center gap-6">
+      <div className="h-screen w-screen bg-background flex flex-col items-center justify-center gap-6">
         {/* Loading animation */}
-        <div className="relative w-20 h-20">
-          <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-transparent border-t-white rounded-full animate-spin"></div>
-        </div>
+        <Loader size="lg" />
 
         {/* Status text */}
         <div className="text-center space-y-2">
-          <div className="text-white text-xl font-medium">{loadingStatus}</div>
-          <div className="text-gray-400 text-sm">This may take a moment...</div>
+          <div className="text-foreground text-xl font-medium">{loadingStatus}</div>
+          <div className="text-muted-foreground text-sm">This may take a moment...</div>
         </div>
 
         {/* Progress dots */}
         <div className="flex space-x-2">
           <div
-            className="w-2 h-2 bg-white rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "0ms" }}
           ></div>
           <div
-            className="w-2 h-2 bg-white rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "150ms" }}
           ></div>
           <div
-            className="w-2 h-2 bg-white rounded-full animate-bounce"
+            className="w-2 h-2 bg-primary rounded-full animate-bounce"
             style={{ animationDelay: "300ms" }}
           ></div>
         </div>
@@ -378,7 +373,7 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#1E1E1E] overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-background overflow-hidden flex flex-col">
       {/* Unified Navigation Bar */}
       <ProjectNav
         projectName={project?.name}

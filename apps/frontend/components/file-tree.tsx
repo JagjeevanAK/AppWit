@@ -54,7 +54,7 @@ function SectionHeader({
 }: SectionHeaderProps) {
   return (
     <div
-      className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:bg-[#2A2D2E] cursor-pointer select-none group"
+      className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hover:bg-popover cursor-pointer select-none group"
       onClick={onToggle}
     >
       <div className="flex items-center gap-1">
@@ -159,8 +159,8 @@ function FileTreeItem({
       <div
         className={cn(
           "flex items-center gap-1 py-[3px] cursor-pointer text-[13px] transition-colors",
-          "hover:bg-[#2A2D2E]",
-          isActive ? "bg-[#094771] text-white" : "text-[#CCCCCC]"
+          "hover:bg-popover",
+          isActive ? "bg-accent text-foreground" : "text-foreground"
         )}
         style={{ paddingLeft: `${level * 8 + 12}px`, paddingRight: "8px" }}
         onClick={handleClick}
@@ -272,7 +272,7 @@ export default function FileTree({
   const [showExplorer, setShowExplorer] = useState(true);
 
   return (
-    <div className="h-full flex flex-col bg-[#252526]">
+    <div className="h-full flex flex-col bg-card">
       {/* Search Input */}
       <div className="px-2 py-2">
         <div className="relative">
@@ -282,7 +282,7 @@ export default function FileTree({
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#3C3C3C] text-[#CCCCCC] text-xs pl-7 pr-2 py-1 rounded border border-transparent focus:border-[#007ACC] focus:outline-none placeholder-gray-500"
+            className="w-full bg-muted text-foreground text-xs pl-7 pr-2 py-1 rounded border border-transparent focus:border-ring focus:outline-none placeholder-muted-foreground"
           />
         </div>
       </div>
@@ -316,19 +316,19 @@ export default function FileTree({
           actions={
             <>
               <button
-                className="p-0.5 hover:bg-[#3C3C3C] rounded"
+                className="p-0.5 hover:bg-muted rounded"
                 title="New File"
               >
                 <FilePlus className="h-3.5 w-3.5 text-gray-400 hover:text-white" />
               </button>
               <button
-                className="p-0.5 hover:bg-[#3C3C3C] rounded"
+                className="p-0.5 hover:bg-muted rounded"
                 title="New Folder"
               >
                 <FolderPlus className="h-3.5 w-3.5 text-gray-400 hover:text-white" />
               </button>
               <button
-                className="p-0.5 hover:bg-[#3C3C3C] rounded"
+                className="p-0.5 hover:bg-muted rounded"
                 title="Refresh"
               >
                 <RefreshCw className="h-3.5 w-3.5 text-gray-400 hover:text-white" />

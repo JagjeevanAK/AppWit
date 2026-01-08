@@ -149,7 +149,7 @@ export default function ProjectNav({
   };
 
   return (
-    <nav className="w-full bg-[#1D1D1D] px-4 py-2">
+    <nav className="w-full bg-background px-4 py-2">
       <div className="flex items-center">
         {/* Left side - Project Name + Collapse Button (takes up chat panel width) */}
         <div
@@ -198,7 +198,7 @@ export default function ProjectNav({
           {/* Collapse/Expand Button - on chat side of handle */}
           <button
             onClick={onToggleChat}
-            className="flex items-center justify-center w-8 h-8 rounded-md bg-[#3C3C3C] text-gray-400 hover:text-white hover:bg-[#4C4C4C] transition-all shrink-0"
+            className="flex items-center justify-center w-8 h-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-all shrink-0"
             title={isChatCollapsed ? "Expand chat" : "Collapse chat"}
           >
             {isChatCollapsed ? (
@@ -216,13 +216,13 @@ export default function ProjectNav({
             isChatCollapsed ? "ml-2" : "ml-2"
           )}
         >
-          <div className="flex items-center bg-[#3C3C3C] rounded-md p-0.5">
+          <div className="flex items-center bg-muted rounded-md p-0.5">
             <button
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
                 activeTab === "preview"
-                  ? "bg-[#007ACC] text-white"
-                  : "text-gray-400 hover:text-white hover:bg-[#4C4C4C]"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
               onClick={() => onTabChange("preview")}
             >
@@ -233,8 +233,8 @@ export default function ProjectNav({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
                 activeTab === "code"
-                  ? "bg-[#007ACC] text-white"
-                  : "text-gray-400 hover:text-white hover:bg-[#4C4C4C]"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
               onClick={() => onTabChange("code")}
             >
@@ -285,7 +285,7 @@ export default function ProjectNav({
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-xl shadow-xl overflow-hidden z-50">
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-white/10">
                     <p className="text-sm font-medium text-white truncate">

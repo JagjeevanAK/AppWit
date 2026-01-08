@@ -165,14 +165,14 @@ export default function ChatBar({
   };
 
   return (
-    <div className="h-full w-full bg-[#1D1D1D] pr-2 text-white flex flex-col">
+    <div className="h-full w-full bg-background pr-2 text-foreground flex flex-col">
       <div className="grow overflow-auto p-3 space-y-3 min-h-[400px]">
         {messages.map((message, index) =>
           message.type === "user" ? (
             <div key={index} className="flex justify-end">
-              <div className="bg-[#282825] rounded-2xl px-2 py-2 text-white max-w-[80%]">
+              <div className="bg-card rounded-2xl px-2 py-2 text-foreground max-w-[80%]">
                 {shouldTruncate(message.content) &&
-                !expandedMessages.has(index) ? (
+                  !expandedMessages.has(index) ? (
                   <div>
                     <MarkdownRenderer
                       markdown={getTruncatedContent(message.content)}

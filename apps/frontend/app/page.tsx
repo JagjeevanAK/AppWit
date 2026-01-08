@@ -37,11 +37,11 @@ export default function Home() {
       <div className="z-10 w-full max-w-2xl px-4 flex flex-col items-center gap-8">
         <div className="space-y-2 text-center">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            What do you want to build?
+            Let's build something
           </h1>
-          <p className="text-lg text-muted-foreground">
+          {/* <p className="text-lg text-muted-foreground">
             Prompt, run, edit, and deploy full-stack web apps.
-          </p>
+          </p> */}
         </div>
 
         <div className="w-full">
