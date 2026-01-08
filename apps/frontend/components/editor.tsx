@@ -338,7 +338,7 @@ export default function CodeEditor({
   };
 
   return (
-    <div className="h-full flex flex-col bg-background rounded-2xl overflow-hidden">
+    <div className="h-full flex flex-col bg-card rounded-2xl overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {activeTab === "preview" ? (
@@ -446,7 +446,7 @@ export default function CodeEditor({
                           fontSize: 14,
                           fontFamily:
                             "'Fira Code', 'Cascadia Code', Consolas, monospace",
-                          minimap: { enabled: true, scale: 1 },
+                          minimap: { enabled: false },
                           wordWrap: "on",
                           automaticLayout: true,
                           scrollBeyondLastLine: false,
@@ -491,18 +491,6 @@ export default function CodeEditor({
           </>
         )}
       </div>
-
-      {/* Status Bar */}
-      {activeTab === "code" && (
-        <StatusBar
-          fileName={activeFile?.name}
-          language={activeLanguageDisplay}
-          line={cursorPosition.line}
-          column={cursorPosition.column}
-          isStreaming={isStreaming}
-          sandboxId={sandboxId}
-        />
-      )}
     </div>
   );
 }

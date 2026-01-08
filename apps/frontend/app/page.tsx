@@ -1,7 +1,7 @@
 "use client";
 
 import InputBox from "@/components/inputbox";
-import LiquidEther from "@/components/LiquidEther";
+import DotGrid from "@/components/dotGrid";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -9,39 +9,41 @@ export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const handlePromptSubmit = (prompt: string) => {
+  const handlePromptSubmit = (prompt: string, theme?: string) => {
+    // Store prompt and theme
+    localStorage.setItem("pendingPrompt", prompt);
+    if (theme) {
+      localStorage.setItem("pendingTheme", theme);
+    } else {
+      localStorage.removeItem("pendingTheme");
+    }
+
     if (!user) {
-      // Store prompt for after authentication
-      localStorage.setItem("pendingPrompt", prompt);
       router.push("/signup");
     } else {
-      // Store prompt and navigate to project creation
-      localStorage.setItem("pendingPrompt", prompt);
       router.push("/project");
     }
   };
 
   return (
-    <div className="relative flex items-center min-h-screen justify-center flex-col text-white overflow-hidden py-12">
-      <div className="absolute inset-0 -z-10">
-        <LiquidEther
-          colors={["#5227FF", "#FF9FFC", "#B19EEF"]}
-          mouseForce={20}
-          cursorSize={100}
-          resolution={0.5}
-          autoDemo={true}
-          autoSpeed={0.5}
-          autoIntensity={2.2}
+    <div className="relative flex items-center min-h-screen justify-center flex-col text-white overflow-hidden py-12 bg-black">
+      {/* Background DotGrid */}
+      <div className="absolute inset-0 z-0">
+        <DotGrid
+          baseColor="#201e24"
+          activeColor="#ece9e4"
+          dotSize={8}
+          gap={24}
+          proximity={120}
         />
       </div>
-      <div className="z-10 w-full max-w-2xl px-4 flex flex-col items-center gap-8">
+
+      {/* Content */}
+      <div className="z-10 w-full max-w-2xl px-4 flex flex-col items-center gap-8 relative">
         <div className="space-y-2 text-center">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             Let's build something
           </h1>
-          {/* <p className="text-lg text-muted-foreground">
-            Prompt, run, edit, and deploy full-stack web apps.
-          </p> */}
         </div>
 
         <div className="w-full">

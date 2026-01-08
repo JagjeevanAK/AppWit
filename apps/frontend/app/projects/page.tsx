@@ -152,7 +152,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-12 px-4">
+    <div className="min-h-screen pt-20 pb-12 px-4 bg-black">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -236,11 +236,10 @@ export default function ProjectsPage() {
                 <div
                   key={project.id}
                   onClick={() => handleProjectClick(project)}
-                  className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 ${
-                    isBackingUp
+                  className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 ${isBackingUp
                       ? "bg-yellow-500/10 border-yellow-500/30 cursor-wait"
                       : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 cursor-pointer hover:scale-[1.02]"
-                  }`}
+                    }`}
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-[16/10] bg-black/20 overflow-hidden">
@@ -300,9 +299,8 @@ export default function ProjectsPage() {
                   <div className="flex items-center justify-between p-4">
                     <div className="flex-1 min-w-0">
                       <h3
-                        className={`font-medium text-sm truncate ${
-                          isBackingUp ? "text-yellow-200" : "text-white"
-                        }`}
+                        className={`font-medium text-sm truncate ${isBackingUp ? "text-yellow-200" : "text-white"
+                          }`}
                       >
                         {project.name}
                       </h3>

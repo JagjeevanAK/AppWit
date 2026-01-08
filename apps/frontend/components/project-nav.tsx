@@ -14,6 +14,7 @@ import { BackendUrl } from "@/config";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import Logo from "@/components/logo";
 
 interface ProjectNavProps {
   projectName?: string;
@@ -149,15 +150,27 @@ export default function ProjectNav({
   };
 
   return (
-    <nav className="w-full bg-background px-4 py-2">
+    <nav className="w-full bg-sidebar px-4 py-2">
       <div className="flex items-center">
-        {/* Left side - Project Name + Collapse Button (takes up chat panel width) */}
+        {/* Left side - Logo + Project Name + Collapse Button (takes up chat panel width) */}
         <div
-          className="flex items-center gap-3 shrink-0 pr-4"
+          className="flex items-center gap-2 shrink-0 pr-4"
           style={{ width: isChatCollapsed ? "auto" : `${chatPanelSize}%` }}
         >
+          {/* Logo - clickable to navigate to dashboard */}
+          <button
+            onClick={() => router.push("/")}
+            className="shrink-0 hover:opacity-80 transition-opacity flex items-center"
+            title="Go to dashboard"
+          >
+            <Logo className="w-6 h-6 text-white" />
+          </button>
+
+          {/* Breadcrumb separator */}
+          <span className="text-gray-500 text-xl leading-none shrink-0">/</span>
+
           {/* Project Name */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex items-center">
             {isEditingName ? (
               <input
                 ref={nameInputRef}
@@ -166,7 +179,7 @@ export default function ProjectNav({
                 onChange={(e) => setEditedName(e.target.value)}
                 onBlur={handleNameSubmit}
                 onKeyDown={handleNameKeyDown}
-                className="bg-transparent text-white text-sm font-medium outline-none border-b border-white/30 pb-0.5"
+                className="bg-transparent text-white text-base font-medium outline-none border-b border-white/30 pb-0.5"
                 placeholder="Project name"
               />
             ) : (
@@ -175,11 +188,11 @@ export default function ProjectNav({
                 className="text-left group flex items-center gap-2"
                 title="Click to rename project"
               >
-                <span className="text-sm font-medium text-white truncate max-w-[200px]">
+                <span className="text-base font-medium text-white truncate max-w-[200px]">
                   {projectName || "Untitled Project"}
                 </span>
                 <svg
-                  className="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  className="w-3.5 h-3.5 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -216,10 +229,10 @@ export default function ProjectNav({
             isChatCollapsed ? "ml-2" : "ml-2"
           )}
         >
-          <div className="flex items-center bg-muted rounded-md p-0.5">
+          <div className="flex items-center bg-muted rounded-xl p-0.5">
             <button
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
+                "flex items-center gap-1.5 px-3 py-1 text-sm rounded-lg transition-all duration-200",
                 activeTab === "preview"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -231,7 +244,7 @@ export default function ProjectNav({
             </button>
             <button
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1 text-sm rounded transition-all duration-200",
+                "flex items-center gap-1.5 px-3 py-1 text-sm rounded-lg transition-all duration-200",
                 activeTab === "code"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -252,7 +265,7 @@ export default function ProjectNav({
           {/* Download Button */}
           <button
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded transition-all duration-200",
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-xl transition-all duration-200",
               "bg-white text-black hover:bg-gray-200",
               isDownloading && "opacity-50 cursor-not-allowed",
               !sandboxId && "opacity-30 cursor-not-allowed"
@@ -285,9 +298,9 @@ export default function ProjectNav({
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-56 bg-black border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
                   {/* User Info */}
-                  <div className="px-4 py-3 border-b border-white/10">
+                  <div className="px-4 py-3">
                     <p className="text-sm font-medium text-white truncate">
                       {user.name || "User"}
                     </p>
@@ -323,13 +336,13 @@ export default function ProjectNav({
                   </div>
 
                   {/* Logout */}
-                  <div className="border-t border-white/10 py-1">
+                  <div className="py-1">
                     <button
                       onClick={() => {
                         setIsDropdownOpen(false);
                         signout();
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-3"
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-3"
                     >
                       <svg
                         className="w-4 h-4"

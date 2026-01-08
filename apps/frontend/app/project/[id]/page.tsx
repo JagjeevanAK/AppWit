@@ -30,6 +30,7 @@ export default function ProjectPage() {
   const { project, loading, error, updateProjectName } = useProject(projectId);
   const streamState = useStream(projectId);
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
+  const [initialTheme, setInitialTheme] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
   const hasNotifiedLeaving = useRef(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
@@ -67,6 +68,11 @@ export default function ProjectPage() {
     if (pendingPrompt) {
       // NEW project with a prompt - let ChatBar handle the streaming
       setInitialPrompt(pendingPrompt);
+      const theme = localStorage.getItem("pendingTheme");
+      if (theme) {
+        setInitialTheme(theme);
+        localStorage.removeItem("pendingTheme");
+      }
       localStorage.removeItem("pendingPrompt");
       hasStartedInitialStream.current = true;
       setLoadingStatus("Building your application...");
@@ -373,7 +379,7 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="h-screen w-screen bg-background overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-sidebar overflow-hidden flex flex-col">
       {/* Unified Navigation Bar */}
       <ProjectNav
         projectName={project?.name}
@@ -407,6 +413,7 @@ export default function ProjectPage() {
               streamState={streamState}
               initialPrompt={initialPrompt}
               initialMessages={initialMessages}
+              initialTheme={initialTheme}
             />
           </ResizablePanel>
 
