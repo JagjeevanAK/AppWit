@@ -32,6 +32,8 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "langchain": "^1.1.2",
+    "langfuse": "^3.32.0",
+    "langfuse-langchain": "^3.32.0",
     "puppeteer": "^24.34.0",
     "zod": "^4.1.13"
   }

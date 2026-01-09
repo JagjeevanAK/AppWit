@@ -87,6 +87,15 @@ import {
     shouldRetry
 } from "./nodes";
 
+// Import Langfuse observability
+import {
+    createTrace,
+    flushLangfuse,
+    isLangfuseEnabled,
+    runEvals,
+    type LangfuseTrace,
+} from "./observability";
+
 // Re-export StreamEvent for external use
 export type { StreamEvent };
 
@@ -146,11 +155,25 @@ export async function runOrchestrator(
 export async function* streamOrchestrator(
     sandbox: Sandbox,
     prompt: string,
-    systemPrompt: string = INITIAL_SYSTEM_PROMPT
+    systemPrompt: string = INITIAL_SYSTEM_PROMPT,
+    options?: { userId?: string; sessionId?: string }
 ): AsyncGenerator<StreamEvent> {
     log.orchestrator('Starting code generation (streaming)');
 
     const graph = createGraph(sandbox);
+    const startTime = Date.now();
+
+    // Create Langfuse trace for this pipeline execution
+    const trace = createTrace({
+        name: "code-generation-pipeline",
+        userId: options?.userId,
+        sessionId: options?.sessionId,
+        metadata: {
+            promptLength: prompt.length,
+            hasSystemPrompt: !!systemPrompt,
+        },
+        tags: ["pipeline", "codegen"],
+    });
 
     // Create a write function for progressive file writing during codegen
     const writeFilesToSandbox = async (files: FileContent[]): Promise<string[]> => {
@@ -175,6 +198,10 @@ export async function* streamOrchestrator(
 
     yield { type: 'planning', message: 'Analyzing your request...' };
 
+    // Track state for evals
+    let capturedPlan: Plan | null = null;
+    let capturedFiles: FileContent[] = [];
+
     try {
         const stream = graph.streamEvents(
             { prompt, systemPrompt, files: [], commands: [], writtenFiles: [] },
@@ -194,6 +221,18 @@ export async function* streamOrchestrator(
                 // Planner completed
                 if (event.name === "planner" && event.data?.output?.plan) {
                     const plan = event.data.output.plan as Plan;
+                    capturedPlan = plan; // Capture for evals
+
+                    // Create a span for the planner node
+                    if (trace) {
+                        const plannerSpan = trace.createSpan({
+                            name: "planner",
+                            input: { prompt: prompt.slice(0, 500) },
+                            metadata: { taskCount: plan.tasks.length },
+                        });
+                        plannerSpan.end({ output: plan });
+                    }
+
                     yield {
                         type: 'plan_complete',
                         message: `Plan created: ${plan.tasks.length} files to generate`,
@@ -204,7 +243,18 @@ export async function* streamOrchestrator(
                 // Codegen completed
                 if (event.name === "codegen" && event.data?.output?.files) {
                     files = event.data.output.files as FileContent[];
+                    capturedFiles = files; // Capture for evals
                     const commands = (event.data.output.commands || []) as string[];
+
+                    // Create a span for the codegen node
+                    if (trace) {
+                        const codegenSpan = trace.createSpan({
+                            name: "codegen",
+                            input: { plan: capturedPlan },
+                            metadata: { fileCount: files.length, commandCount: commands.length },
+                        });
+                        codegenSpan.end({ output: { fileCount: files.length, commandCount: commands.length } });
+                    }
 
                     yield { type: 'generating', message: `Generated ${files.length} files, ${commands.length} commands` };
 
@@ -228,6 +278,20 @@ export async function* streamOrchestrator(
                 // Reviewer completed
                 if (event.name === "reviewer" && event.data?.output?.reviewResult) {
                     const result = event.data.output.reviewResult as ReviewResult;
+
+                    // Create a span for the reviewer node
+                    if (trace) {
+                        const reviewerSpan = trace.createSpan({
+                            name: "reviewer",
+                            input: { fileCount: capturedFiles.length },
+                            metadata: { status: result.status },
+                        });
+                        reviewerSpan.end({
+                            output: result,
+                            level: result.status === 'success' ? 'DEFAULT' : 'WARNING',
+                        });
+                    }
+
                     yield {
                         type: 'review_complete',
                         message: result.status === 'success'
@@ -244,13 +308,50 @@ export async function* streamOrchestrator(
             }
         }
 
-        log.orchestrator('Code generation complete');
+        const generationTimeMs = Date.now() - startTime;
+        log.orchestrator(`Code generation complete in ${(generationTimeMs / 1000).toFixed(1)}s`);
+
+        // Run LLM-as-Judge evaluations if Langfuse is enabled
+        if (trace && isLangfuseEnabled()) {
+            try {
+                await runEvals(trace, {
+                    userPrompt: prompt,
+                    plan: capturedPlan,
+                    files: capturedFiles,
+                    generationTimeMs,
+                });
+            } catch (evalError) {
+                log.orchestrator('Evals failed (non-fatal):', evalError);
+            }
+
+            // End the trace with final output
+            trace.end({
+                filesGenerated: capturedFiles.length,
+                generationTimeMs,
+                success: true,
+            });
+        }
+
         yield { type: 'done', message: 'Code generation complete' };
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         log.orchestrator(`Error: ${errorMessage}`);
+
+        // Log error to trace if available
+        if (trace) {
+            trace.score({
+                name: "pipelineError",
+                value: 0,
+                comment: errorMessage,
+            });
+            trace.end({ error: errorMessage, success: false });
+        }
+
         yield { type: 'error', message: errorMessage };
+    } finally {
+        // Flush Langfuse events
+        await flushLangfuse();
     }
 }
 
