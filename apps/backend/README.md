@@ -1,4 +1,4 @@
-# versim backend
+# AppWit backend
 
 To install dependencies:
 

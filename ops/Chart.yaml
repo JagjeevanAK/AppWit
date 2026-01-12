@@ -1,6 +1,6 @@
 apiVersion: v2
-name: Versim-ops
-description: A Helm chart for Kubernetes for deploying Versim
+name: AppWit-ops
+description: A Helm chart for Kubernetes for deploying AppWit
 
 # A chart can be either an 'application' or a 'library' chart.
 #
