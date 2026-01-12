@@ -13,7 +13,7 @@ import { useSandboxHeartbeat } from "@/hooks/useSandboxHeartbeat";
 import { useProject } from "@/hooks/useProject";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { BackendUrl } from "@/config";
-import { ImperativePanelHandle } from "react-resizable-panels";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import ProjectNav from "@/components/project-nav";
 import { Loader } from "@/components/ui/loader";
 

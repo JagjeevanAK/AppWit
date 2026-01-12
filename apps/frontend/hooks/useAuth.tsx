@@ -4,9 +4,9 @@ import {
   createContext,
   useContext,
   useState,
-  ReactNode,
   useEffect,
 } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BackendUrl } from "@/config";
 

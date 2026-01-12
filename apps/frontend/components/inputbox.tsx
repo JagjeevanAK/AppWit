@@ -2,7 +2,8 @@
 import { ArrowUp, Search, LayoutTemplate } from 'lucide-react';
 import { cn } from "@/lib/utils"
 import { useRef, useState, useEffect } from 'react';
-import { themes, ThemeInfo } from '@/lib/themes';
+import { themes } from '@/lib/themes';
+import type { ThemeInfo } from '@/lib/themes';
 
 interface InputBoxProps {
     height?: string;
@@ -63,7 +64,7 @@ export default function InputBox({
             return;
         }
 
-        const currentText = placeholders[placeholderIndex];
+        const currentText = placeholders[placeholderIndex] ?? "";
 
         if (!isDeleting && charIndex < currentText.length) {
             const timeout = setTimeout(() => {

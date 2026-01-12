@@ -1,4 +1,4 @@
-import { FileNode } from "@/components/file-tree";
+import type { FileNode } from "@/components/file-tree";
 
 interface SandboxFile {
   name: string;

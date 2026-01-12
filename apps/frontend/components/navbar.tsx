@@ -47,7 +47,7 @@ export default function Navbar() {
         .slice(0, 2);
     }
     if (user?.email) {
-      return user.email[0].toUpperCase();
+      return user.email[0]?.toUpperCase() ?? "U";
     }
     return "U";
   };

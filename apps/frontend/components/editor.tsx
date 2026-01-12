@@ -8,7 +8,8 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import FileTree, { FileNode } from "@/components/file-tree";
+import FileTree from "@/components/file-tree";
+import type { FileNode } from "@/components/file-tree";
 import {
   findFileById,
   inferLanguage,
@@ -320,7 +321,7 @@ export default function CodeEditor({
 
     if (id === activeFileId) {
       if (newOpenTabs.length > 0) {
-        setActiveFileId(newOpenTabs[newOpenTabs.length - 1]);
+        setActiveFileId(newOpenTabs[newOpenTabs.length - 1] ?? "");
       } else {
         setActiveFileId("");
       }

@@ -1,6 +1,7 @@
-import { PrismaClient } from '../generated/prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+// Re-export everything from shared db package
+// The prisma client and all types are handled by @appwit/db
+export { prisma } from "@appwit/db";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-
-export const prisma = new PrismaClient({ adapter })
+// For types, import from @appwit/db which re-exports from its generated client
+// Note: These need to be imported where used since @appwit/db may not export them
+// If you need enums, import them directly: import { MessageRole } from "@prisma/client"

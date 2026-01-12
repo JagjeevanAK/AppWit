@@ -1,0 +1,29 @@
+{
+  "name": "@appwit/db",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "generate": "bunx prisma generate",
+    "migrate": "bunx prisma migrate dev",
+    "push": "bunx prisma db push"
+  },
+  "devDependencies": {
+    "@appwit/typescript-config": "workspace:*",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
+    "@types/pg": "^8.16.0",
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3",
+    "prisma": "^7.2.0"
+  }
+}

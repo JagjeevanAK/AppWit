@@ -1,0 +1,24 @@
+{
+    "name": "@appwit/sandbox",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "exports": {
+        ".": "./index.ts",
+        "./templates/nextjs": "./templates/nextjs",
+        "./templates/vite": "./templates/vite"
+    },
+    "scripts": {
+        "build:template": "e2b template build"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "e2b": "^2.2.8",
+        "@langchain/core": "^1.1.1"
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    }
+}

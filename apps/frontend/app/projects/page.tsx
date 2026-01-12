@@ -1,6 +1,7 @@
 "use client";
 
-import { useProjects, Project } from "@/hooks/useProjects";
+import { useProjects } from "@/hooks/useProjects";
+import type { Project } from "@/hooks/useProjects";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { BackendUrl } from "@/config";

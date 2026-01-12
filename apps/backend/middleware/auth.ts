@@ -1,8 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../lib/prisma'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+import { config } from '@/config'
 
 export interface AuthRequest extends Request {
     userId?: string
@@ -17,7 +16,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     const token = authHeader.slice(7)
 
     try {
-        const payload = jwt.verify(token, JWT_SECRET) as { userId: string }
+        const payload = jwt.verify(token, config.jwt.secret) as { userId: string };
         
         const session = await prisma.session.findFirst({
             where: { token, userId: payload.userId, expiresAt: { gt: new Date() } },

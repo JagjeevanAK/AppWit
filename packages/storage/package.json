@@ -1,0 +1,20 @@
+{
+    "name": "@appwit/storage",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "exports": {
+        ".": "./index.ts"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.946.0",
+        "e2b": "^2.2.8"
+    },
+    "devDependencies": {
+        "@appwit/typescript-config": "workspace:*",
+        "@types/bun": "latest"
+    }
+}

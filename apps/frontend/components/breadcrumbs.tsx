@@ -26,7 +26,7 @@ export default function Breadcrumbs({
   // Remove common prefixes like /home/user/
   const cleanPath = filePath.replace(/^\/home\/user\//, "");
   const segments = cleanPath.split("/").filter(Boolean);
-  const fileName = segments[segments.length - 1];
+  const fileName = segments[segments.length - 1] ?? "";
   const folders = segments.slice(0, -1);
 
   return (
