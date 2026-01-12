@@ -7,11 +7,13 @@ ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 COPY package.json bun.lock turbo.json ./
 
 COPY apps/frontend/package.json ./apps/frontend/package.json
+COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
 
 RUN bun install
 
-COPY apps/frontend ./apps/frontend
+COPY packages/typescript-config ./packages/typescript-config
 
+COPY apps/frontend ./apps/frontend
 RUN bun run build --filter=@appwit/frontend
 
 FROM node:20-alpine AS runner
