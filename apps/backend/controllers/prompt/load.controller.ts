@@ -58,6 +58,7 @@ import { prisma } from "@/lib/prisma";
 import type { AuthRequest } from "@/middleware/auth";
 import { initializeR2ForSandbox, isR2Configured } from "@appwit/storage";
 import { activeSandboxes, acquireProjectLock, releaseProjectLock } from "@appwit/sandbox";
+import { serverConfig } from "@appwit/config/server";
 import {
   cancelPendingShutdown,
   initializeCodeHash,
@@ -65,8 +66,7 @@ import {
   getOrCreateChat,
 } from "@/services";
 
-const TEMPLATE_ID = process.env.TEMPLATE_ID;
-const SANDBOX_PORT = process.env.SANDBOX_PORT;
+const { sandbox } = serverConfig;
 
 export async function handleLoadProject(req: AuthRequest, res: Response) {
   const projectId = req.params.projectId;
@@ -141,7 +141,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
     // Acquire lock to prevent race condition with concurrent requests
     await acquireProjectLock(projectId);
 
-    let sandbox;
+    let sbx: Sandbox;
     let sandboxUrl: string;
     let sandboxId: string;
 
@@ -164,13 +164,13 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
       }
 
       console.log(`[LOAD] Creating new sandbox for project ${projectId}`);
-      sandbox = await Sandbox.create(TEMPLATE_ID!, {
+      sbx = await Sandbox.create(sandbox.templateId!, {
         timeoutMs: 300_000,
       });
 
-      const host = sandbox.getHost(parseInt(SANDBOX_PORT!));
+      const host = sbx.getHost(sandbox.port!);
       sandboxUrl = `https://${host}`;
-      sandboxId = sandbox.sandboxId;
+      sandboxId = sbx.sandboxId;
 
       let restored = false;
       if (isR2Configured()) {
@@ -179,7 +179,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
           `[LOAD] Initializing R2 for project ${projectId} (shouldRestore: ${shouldRestore})`
         );
         const result = await initializeR2ForSandbox(
-          sandbox,
+          sbx,
           userId,
           projectId,
           shouldRestore
@@ -194,7 +194,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
         if (restored) {
           console.log(`[LOAD] Running bun install to restore dependencies...`);
           try {
-            const bunResult = await sandbox.commands.run(
+            const bunResult = await sbx.commands.run(
               "cd /home/user && bun install 2>&1",
               { timeoutMs: 180000 }
             );
@@ -217,7 +217,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
       const chatId = await getOrCreateChat(projectId);
 
       activeSandboxes.set(sandboxId, {
-        sandbox,
+        sandbox: sbx,
         messages: [],
         sandboxUrl,
         projectId,

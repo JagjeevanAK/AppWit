@@ -1,1 +1,3 @@
-export const BackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+import { clientConfig } from "@appwit/config/client";
+
+export const BackendUrl = clientConfig.backendUrl;

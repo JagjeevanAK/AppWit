@@ -1,0 +1,5 @@
+{
+  "extends": "@appwit/typescript-config/library.json",
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

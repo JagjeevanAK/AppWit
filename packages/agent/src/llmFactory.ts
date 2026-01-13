@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { serverConfig } from "@appwit/config/server";
 
 export type LLMProvider = "openrouter" | "anthropic" | "openai";
 
@@ -44,10 +45,8 @@ export class LLMFactory {
   }
 
   private resolveProvider(): LLMProvider {
-    const provider = process.env.LLM_PROVIDER?.toLowerCase() as LLMProvider;
-    return ["openrouter", "anthropic", "openai"].includes(provider)
-      ? provider
-      : "openrouter";
+    const provider = serverConfig.llm.provider;
+    return provider || "openrouter";
   }
 
   private resolveModel(): string {
@@ -72,30 +71,28 @@ export class LLMFactory {
       case "anthropic":
         return new ChatAnthropic({
           model: this.model,
-          anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-          maxTokens: 64000, // Claude Sonnet 4.5 max output
-          temperature: 0, // Deterministic output for code
+          anthropicApiKey: serverConfig.llm.anthropicApiKey,
+          maxTokens: 64000,
+          temperature: 0,
         });
 
       case "openai":
-        // Use Responses API for Codex models (gpt-5.1-codex-max, etc.)
-        // The Responses API provides better support for agentic coding tasks
         if (isCodexModel(this.model)) {
           console.log(
             `\x1b[36m[LLM]\x1b[0m Using Responses API for Codex model: ${this.model}`
           );
           return new ChatOpenAI({
             model: this.model,
-            openAIApiKey: process.env.OPENAI_API_KEY,
-            maxTokens: 100000, // Codex models support higher output limits
-            temperature: 1, // Codex models require temperature=1
+            openAIApiKey: serverConfig.llm.openaiApiKey,
+            maxTokens: 100000,
+            temperature: 1,
             useResponsesApi: true,
           });
         }
         return new ChatOpenAI({
           model: this.model,
-          openAIApiKey: process.env.OPENAI_API_KEY,
-          maxTokens: 16384, // GPT-4o limit
+          openAIApiKey: serverConfig.llm.openaiApiKey,
+          maxTokens: 16384,
           temperature: 0,
         });
 
@@ -105,9 +102,9 @@ export class LLMFactory {
           model: this.model,
           configuration: {
             baseURL: "https://openrouter.ai/api/v1",
-            apiKey: process.env.OPENROUTER_API_KEY,
+            apiKey: serverConfig.llm.openrouterApiKey,
           },
-          maxTokens: 64000, // Claude via OpenRouter max output
+          maxTokens: 64000,
           temperature: 0,
         });
     }

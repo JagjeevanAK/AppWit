@@ -5,6 +5,7 @@
     "": {
       "name": "appwit",
       "devDependencies": {
+        "@types/ms": "^2.1.0",
         "baseline-browser-mapping": "^2.8.32",
         "prettier": "^3.6.2",
         "turbo": "^2.7.3",
@@ -15,6 +16,7 @@
       "name": "@appwit/backend",
       "dependencies": {
         "@appwit/agent": "workspace:*",
+        "@appwit/config": "workspace:*",
         "@appwit/db": "workspace:*",
         "@appwit/sandbox": "workspace:*",
         "@appwit/storage": "workspace:*",
@@ -41,6 +43,7 @@
       "name": "@appwit/frontend",
       "version": "0.1.0",
       "dependencies": {
+        "@appwit/config": "workspace:*",
         "@monaco-editor/react": "^4.7.0",
         "@radix-ui/react-label": "^2.1.8",
         "@radix-ui/react-separator": "^1.1.8",
@@ -77,6 +80,7 @@
     "packages/agent": {
       "name": "@appwit/agent",
       "dependencies": {
+        "@appwit/config": "workspace:*",
         "@langchain/anthropic": "^1.3.1",
         "@langchain/core": "^1.1.1",
         "@langchain/langgraph": "^1.0.2",
@@ -95,13 +99,26 @@
         "typescript": "^5",
       },
     },
+    "packages/config": {
+      "name": "@appwit/config",
+      "dependencies": {
+        "dotenv": "^16.4.5",
+      },
+      "devDependencies": {
+        "@appwit/typescript-config": "workspace:*",
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
     "packages/db": {
       "name": "@appwit/db",
       "dependencies": {
+        "@appwit/config": "workspace:*",
         "@prisma/adapter-pg": "^7.2.0",
         "@prisma/client": "^7.2.0",
         "@types/pg": "^8.16.0",
-        "dotenv": "^17.2.3",
         "pg": "^8.16.3",
         "prisma": "^7.2.0",
       },
@@ -129,6 +146,7 @@
     "packages/storage": {
       "name": "@appwit/storage",
       "dependencies": {
+        "@appwit/config": "workspace:*",
         "@aws-sdk/client-s3": "^3.946.0",
         "e2b": "^2.2.8",
       },
@@ -153,6 +171,8 @@
     "@appwit/agent": ["@appwit/agent@workspace:packages/agent"],
 
     "@appwit/backend": ["@appwit/backend@workspace:apps/backend"],
+
+    "@appwit/config": ["@appwit/config@workspace:packages/config"],
 
     "@appwit/db": ["@appwit/db@workspace:packages/db"],
 
@@ -986,7 +1006,7 @@
 
     "dompurify": ["dompurify@3.2.7", "", { "optionalDependencies": { "@types/trusted-types": "^2.0.7" } }, "sha512-WhL/YuveyGXJaerVlMYGWhvQswa7myDG17P7Vu65EWC05o8vfeNbvNf4d/BOvH99+ZW+LlQsc1GDKMa1vNK6dw=="],
 
-    "dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
+    "dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
 
     "dunder-proto": ["dunder-proto@1.0.1", "", { "dependencies": { "call-bind-apply-helpers": "^1.0.1", "es-errors": "^1.3.0", "gopd": "^1.2.0" } }, "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="],
 
@@ -2045,8 +2065,6 @@
     "@typescript-eslint/eslint-plugin/ignore": ["ignore@7.0.5", "", {}, "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg=="],
 
     "@typescript-eslint/typescript-estree/minimatch": ["minimatch@9.0.5", "", { "dependencies": { "brace-expansion": "^2.0.1" } }, "sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow=="],
-
-    "c12/dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
 
     "chromium-bidi/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 

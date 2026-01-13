@@ -60,6 +60,7 @@ import { MessageRole } from "@appwit/db";
 import type { AuthRequest } from "@/middleware/auth";
 import { initializeR2ForSandbox, isR2Configured } from "@appwit/storage";
 import { activeSandboxes } from "@appwit/sandbox";
+import { serverConfig } from "@appwit/config/server";
 import {
   initializeCodeHash,
   startAutoBackup,
@@ -70,8 +71,7 @@ import {
   generateCodeSummary,
 } from "@/services";
 
-const TEMPLATE_ID = process.env.TEMPLATE_ID;
-const SANDBOX_PORT = process.env.SANDBOX_PORT;
+const { sandbox } = serverConfig;
 
 export async function handleInitialPrompt(req: AuthRequest, res: Response) {
   const { prompt, projectId } = req.body;
@@ -101,31 +101,30 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    if (!TEMPLATE_ID || !SANDBOX_PORT) {
+    if (!sandbox.templateId || !sandbox.port) {
       return res.status(500).json({
         error: "TEMPLATE_ID or SANDBOX_PORT environment variable is not set",
       });
     }
 
-    const sandbox = await Sandbox.create(TEMPLATE_ID, {
+    const sbx = await Sandbox.create(sandbox.templateId, {
       timeoutMs: 300_000,
     });
 
-    const host = sandbox.getHost(parseInt(SANDBOX_PORT));
+    const host = sbx.getHost(sandbox.port);
     const sandboxUrl = `https://${host}`;
-    const sandboxId = sandbox.sandboxId;
+    const sandboxId = sbx.sandboxId;
 
     const chatId = await getOrCreateChat(projectId);
     const isFirst = await isFirstMessage(chatId);
 
-    // Initialize R2 and restore project if this is a returning project
     if (isR2Configured()) {
       const shouldRestore = !isFirst;
       console.log(
         `[INIT] Initializing R2 for ${isFirst ? "new" : "existing"} project ${projectId}`
       );
       const { mounted, restored } = await initializeR2ForSandbox(
-        sandbox,
+        sbx,
         userId,
         projectId,
         shouldRestore
@@ -139,7 +138,6 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
 
     await saveMessage(chatId, MessageRole.USER, prompt);
 
-    // Build context messages based on whether this is first or subsequent prompt
     let initialMessages: BaseMessage[];
 
     if (isFirst) {
@@ -162,7 +160,7 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
     }
 
     activeSandboxes.set(sandboxId, {
-      sandbox,
+      sandbox: sbx,
       messages: initialMessages,
       sandboxUrl,
       projectId,
@@ -171,10 +169,8 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
       createdAt: new Date(),
     });
 
-    // Initialize code hash for backup change detection
     await initializeCodeHash(sandboxId);
 
-    // Start auto-backup timer (backs up every 1 min if code changed)
     startAutoBackup(sandboxId);
 
     console.log(
@@ -203,7 +199,7 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
       let commandCount = 0;
 
       for await (const event of streamMultiAgentOrchestrator(
-        sandbox,
+        sbx,
         prompt,
         systemPromptToUse
       )) {

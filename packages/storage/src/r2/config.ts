@@ -1,9 +1,10 @@
 import type { Sandbox } from "e2b";
+import { serverConfig, isR2Configured } from "@appwit/config/server";
 
-export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
+export const R2_ACCOUNT_ID = serverConfig.r2.accountId;
+export const R2_ACCESS_KEY_ID = serverConfig.r2.accessKeyId;
+export const R2_SECRET_ACCESS_KEY = serverConfig.r2.secretAccessKey;
+export const R2_BUCKET_NAME = serverConfig.r2.bucketName;
 
 export const BACKUP_MOUNT_PATH = "/mnt/backup";
 export const PROJECT_PATH = "/home/user";
@@ -23,15 +24,7 @@ export const EXCLUDE_PATTERNS = [
   "pnpm-lock.yaml",
 ];
 
-export function isR2Configured(): boolean {
-  const configured = !!(
-    R2_ACCOUNT_ID &&
-    R2_ACCESS_KEY_ID &&
-    R2_SECRET_ACCESS_KEY &&
-    R2_BUCKET_NAME
-  );
-  return configured;
-}
+export { isR2Configured };
 
 console.log(
   `[R2] Configuration status: ${isR2Configured() ? "CONFIGURED" : "NOT CONFIGURED"}`

@@ -16,23 +16,14 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { serverConfig, isR2Configured } from "@appwit/config/server";
 
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // e.g., https://pub-xxx.r2.dev or custom domain
+const { r2 } = serverConfig;
 
-// Lazy-loaded S3 client
 let s3Client: S3Client | null = null;
 
 function getS3Client(): S3Client | null {
-  if (
-    !R2_ACCOUNT_ID ||
-    !R2_ACCESS_KEY_ID ||
-    !R2_SECRET_ACCESS_KEY ||
-    !R2_BUCKET_NAME
-  ) {
+  if (!isR2Configured()) {
     console.log("[SCREENSHOT] R2 not configured, cannot upload screenshots");
     return null;
   }
@@ -40,10 +31,10 @@ function getS3Client(): S3Client | null {
   if (!s3Client) {
     s3Client = new S3Client({
       region: "auto",
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${r2.accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_ACCESS_KEY,
+        accessKeyId: r2.accessKeyId!,
+        secretAccessKey: r2.secretAccessKey!,
       },
     });
   }
@@ -65,8 +56,7 @@ export async function captureAndUploadScreenshot(
     return null;
   }
 
-  // R2_PUBLIC_URL is required for the thumbnail to be accessible
-  if (!R2_PUBLIC_URL) {
+  if (!r2.publicUrl) {
     console.log(
       "[SCREENSHOT] R2_PUBLIC_URL not set, skipping screenshot (thumbnails won't be accessible without it)"
     );
@@ -79,7 +69,6 @@ export async function captureAndUploadScreenshot(
     );
     console.log(`[SCREENSHOT] URL: ${sandboxUrl}`);
 
-    // Dynamically import puppeteer to avoid issues if not installed
     let puppeteer;
     try {
       puppeteer = await import("puppeteer");
@@ -90,7 +79,6 @@ export async function captureAndUploadScreenshot(
       return null;
     }
 
-    // Launch browser
     const browser = await puppeteer.default.launch({
       headless: true,
       args: [
@@ -103,23 +91,19 @@ export async function captureAndUploadScreenshot(
 
     const page = await browser.newPage();
 
-    // Set viewport for consistent screenshots
     await page.setViewport({
       width: 1280,
       height: 720,
       deviceScaleFactor: 1,
     });
 
-    // Navigate to the sandbox URL with timeout
     await page.goto(sandboxUrl, {
       waitUntil: "networkidle2",
       timeout: 30000,
     });
 
-    // Wait a bit for any animations to settle
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Capture screenshot as buffer
     const screenshotBuffer = await page.screenshot({
       type: "png",
       fullPage: false,
@@ -127,21 +111,19 @@ export async function captureAndUploadScreenshot(
 
     await browser.close();
 
-    // Upload to R2
     const key = `thumbnails/${userId}/${projectId}.png`;
 
     await client.send(
       new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: r2.bucketName,
         Key: key,
         Body: screenshotBuffer as Buffer,
         ContentType: "image/png",
-        CacheControl: "public, max-age=31536000", // Cache for 1 year (will be replaced on update)
+        CacheControl: "public, max-age=31536000",
       })
     );
 
-    // Construct public URL (R2_PUBLIC_URL is guaranteed to exist at this point)
-    const publicUrl = `${R2_PUBLIC_URL}/${key}`;
+    const publicUrl = `${r2.publicUrl}/${key}`;
 
     console.log(`[SCREENSHOT] ✓ Uploaded thumbnail: ${publicUrl}`);
 
@@ -169,7 +151,7 @@ export async function deleteThumbnail(
 
     await client.send(
       new DeleteObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: r2.bucketName,
         Key: key,
       })
     );
@@ -186,24 +168,16 @@ export async function deleteThumbnail(
  * Check if screenshot capture is available (puppeteer installed + R2 configured + public URL set).
  */
 export function isScreenshotEnabled(): boolean {
-  // R2_PUBLIC_URL is required for thumbnails to be accessible
-  // Without it, the internal R2 URL won't work in the browser
-  const enabled = !!(
-    R2_ACCOUNT_ID &&
-    R2_ACCESS_KEY_ID &&
-    R2_SECRET_ACCESS_KEY &&
-    R2_BUCKET_NAME &&
-    R2_PUBLIC_URL
-  );
+  const enabled = isR2Configured() && !!r2.publicUrl;
 
   if (!enabled) {
     console.log(`[SCREENSHOT] Screenshot disabled. Config check:`, {
-      hasAccountId: !!R2_ACCOUNT_ID,
-      hasAccessKey: !!R2_ACCESS_KEY_ID,
-      hasSecretKey: !!R2_SECRET_ACCESS_KEY,
-      hasBucket: !!R2_BUCKET_NAME,
-      hasPublicUrl: !!R2_PUBLIC_URL,
-      publicUrl: R2_PUBLIC_URL ? R2_PUBLIC_URL.slice(0, 30) + "..." : "NOT SET",
+      hasAccountId: !!r2.accountId,
+      hasAccessKey: !!r2.accessKeyId,
+      hasSecretKey: !!r2.secretAccessKey,
+      hasBucket: !!r2.bucketName,
+      hasPublicUrl: !!r2.publicUrl,
+      publicUrl: r2.publicUrl ? r2.publicUrl.slice(0, 30) + "..." : "NOT SET",
     });
   }
 

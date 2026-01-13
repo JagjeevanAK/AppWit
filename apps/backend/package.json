@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@appwit/agent": "workspace:*",
+    "@appwit/config": "workspace:*",
     "@appwit/db": "workspace:*",
     "@appwit/sandbox": "workspace:*",
     "@appwit/storage": "workspace:*",

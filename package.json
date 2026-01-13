@@ -12,6 +12,7 @@
         "start:backend": "bun run --cwd apps/backend start"
     },
     "devDependencies": {
+        "@types/ms": "^2.1.0",
         "baseline-browser-mapping": "^2.8.32",
         "prettier": "^3.6.2",
         "turbo": "^2.7.3",

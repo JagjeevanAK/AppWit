@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import { serverConfig } from "@appwit/config/server";
 
-const connectionString = process.env.DATABASE_URL || "postgresql://appwit:appwit_password@localhost:5432/appwit_db";
-const pool = new pg.Pool({ connectionString });
+const pool = new pg.Pool({ connectionString: serverConfig.database.url });
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });

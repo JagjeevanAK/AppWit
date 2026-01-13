@@ -13,8 +13,8 @@
 
 import { Langfuse } from "langfuse";
 import { CallbackHandler } from "langfuse-langchain";
+import { serverConfig, isLangfuseConfigured } from "@appwit/config/server";
 
-// Singleton Langfuse client
 let langfuseInstance: Langfuse | null = null;
 
 /**
@@ -26,11 +26,7 @@ export function getLangfuse(): Langfuse | null {
         return langfuseInstance;
     }
 
-    const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
-    const secretKey = process.env.LANGFUSE_SECRET_KEY;
-    const host = process.env.LANGFUSE_HOST || "https://cloud.langfuse.com";
-
-    if (!publicKey || !secretKey) {
+    if (!isLangfuseConfigured()) {
         console.log(
             "\x1b[33m[LANGFUSE]\x1b[0m Credentials not configured, tracing disabled"
         );
@@ -38,9 +34,9 @@ export function getLangfuse(): Langfuse | null {
     }
 
     langfuseInstance = new Langfuse({
-        publicKey,
-        secretKey,
-        baseUrl: host,
+        publicKey: serverConfig.langfuse.publicKey!,
+        secretKey: serverConfig.langfuse.secretKey!,
+        baseUrl: serverConfig.langfuse.host,
     });
 
     console.log("\x1b[32m[LANGFUSE]\x1b[0m Initialized successfully");
@@ -51,9 +47,7 @@ export function getLangfuse(): Langfuse | null {
  * Check if Langfuse is enabled (credentials configured)
  */
 export function isLangfuseEnabled(): boolean {
-    return !!(
-        process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY
-    );
+    return isLangfuseConfigured();
 }
 
 /**
