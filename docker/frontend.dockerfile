@@ -7,10 +7,12 @@ ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 COPY package.json bun.lock turbo.json ./
 
 COPY apps/frontend/package.json ./apps/frontend/package.json
+COPY packages/config/package.json ./packages/config/package.json
 COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
 
 RUN bun install
 
+COPY packages/config ./packages/config
 COPY packages/typescript-config ./packages/typescript-config
 
 COPY apps/frontend ./apps/frontend
