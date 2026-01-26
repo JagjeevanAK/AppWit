@@ -23,10 +23,12 @@
     "@appwit/sandbox": "workspace:*",
     "@appwit/storage": "workspace:*",
     "@aws-sdk/client-s3": "^3.946.0",
+    "@langchain/core": "^1.1.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
+    "e2b": "^2.2.8",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "puppeteer": "^24.34.0"
