@@ -77,7 +77,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create .env file on server
+      - name: Copy docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT }}
+          source: "docker-compose.yml"
+          target: "/root/appwit"
+          strip_components: 0
+
+      - name: Create .env file and deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.DO_HOST }}
@@ -85,7 +96,10 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           port: ${{ secrets.DO_PORT }}
           script: |
-            cd /home/root/appwit || exit 1
+            mkdir -p /root/appwit
+            cd /root/appwit
+            
+            # Create .env file
             rm -f .env
             cat > .env << 'EOF'
             # Database Configuration
@@ -131,17 +145,8 @@ jobs:
             EOF
             chmod 600 .env
             echo ".env file created successfully"
-
-      - name: Deploy to Digital Ocean Droplet
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USERNAME }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: ${{ secrets.DO_PORT }}
-          script: |
-            cd /home/root/appwit || exit 1
-            git pull origin main
+            
+            # Deploy
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ghcr.io/${{ github.repository_owner }}/appwit/backend:latest
             docker pull ghcr.io/${{ github.repository_owner }}/appwit/frontend:latest
