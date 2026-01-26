@@ -77,6 +77,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set lowercase image name
+        id: image-name
+        run: echo "IMAGE_NAME_LOWER=$(echo ${{ github.repository_owner }}/appwit | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Copy docker-compose.yml to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -148,10 +152,10 @@ jobs:
             
             # Deploy
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ghcr.io/${{ github.repository_owner }}/appwit/backend:latest
-            docker pull ghcr.io/${{ github.repository_owner }}/appwit/frontend:latest
-            export BACKEND_IMAGE=ghcr.io/${{ github.repository_owner }}/appwit/backend:latest
-            export FRONTEND_IMAGE=ghcr.io/${{ github.repository_owner }}/appwit/frontend:latest
+            docker pull ghcr.io/${{ steps.image-name.outputs.IMAGE_NAME_LOWER }}/backend:latest
+            docker pull ghcr.io/${{ steps.image-name.outputs.IMAGE_NAME_LOWER }}/frontend:latest
+            export BACKEND_IMAGE=ghcr.io/${{ steps.image-name.outputs.IMAGE_NAME_LOWER }}/backend:latest
+            export FRONTEND_IMAGE=ghcr.io/${{ steps.image-name.outputs.IMAGE_NAME_LOWER }}/frontend:latest
             docker compose down
             docker compose up -d
             docker image prune -af
