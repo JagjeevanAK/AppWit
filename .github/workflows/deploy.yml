@@ -115,6 +115,8 @@ jobs:
             # Backend Configuration
             NODE_ENV=production
             BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+            BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
 
             # E2B Sandbox Configuration
@@ -135,6 +137,11 @@ jobs:
             R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
             R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
             R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+
+            # Langfuse Observability
+            LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }}
+            LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }}
+            LANGFUSE_HOST=${{ secrets.LANGFUSE_HOST }}
 
             # Frontend Configuration
             FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
