@@ -85,7 +85,7 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           port: ${{ secrets.DO_PORT }}
           script: |
-            cd /home/deploy/appwit || exit 1
+            cd /home/root/appwit || exit 1
             rm -f .env
             cat > .env << 'EOF'
             # Database Configuration
