@@ -1,15 +1,37 @@
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
+import { existsSync } from "fs";
 import type { ServerConfig } from "./types";
 import type { StringValue } from "ms";
 
 let envLoaded = false;
 
+function findEnvFile(): string | undefined {
+  const possiblePaths = [
+    "/app/.env",
+    resolve(import.meta.dirname, "../../../../.env"),
+    resolve(import.meta.dirname, "../../../.env"),
+    resolve(process.cwd(), ".env"),
+  ];
+  
+  for (const envPath of possiblePaths) {
+    if (existsSync(envPath)) {
+      return envPath;
+    }
+  }
+  return undefined;
+}
+
 function loadEnv(): void {
   if (envLoaded) return;
   
-  const rootPath = resolve(import.meta.dirname, "../../../..");
-  dotenvConfig({ path: resolve(rootPath, ".env") });
+  const envPath = findEnvFile();
+  if (envPath) {
+    console.log(`[Config] Loading .env from: ${envPath}`);
+    dotenvConfig({ path: envPath });
+  } else {
+    console.log(`[Config] No .env file found, using environment variables directly`);
+  }
   envLoaded = true;
 }
 

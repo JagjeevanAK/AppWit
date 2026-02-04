@@ -116,6 +116,8 @@ export default function ProjectPage() {
       localStorage.removeItem("pendingPrompt");
       hasStartedInitialStream.current = true;
       setLoadingStatus("Building your application...");
+      // Allow ChatBar to render so it can trigger the stream
+      setIsInitialOrchestrationComplete(true);
     } else if (
       !hasLoadedExistingProject.current &&
       projectId &&

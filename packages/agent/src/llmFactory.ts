@@ -62,10 +62,28 @@ export class LLMFactory {
     return this.model;
   }
 
+  private validateApiKey(): void {
+    const keyMap: Record<LLMProvider, { key: string | undefined; name: string }> = {
+      anthropic: { key: serverConfig.llm.anthropicApiKey, name: "ANTHROPIC_API_KEY" },
+      openai: { key: serverConfig.llm.openaiApiKey, name: "OPENAI_API_KEY" },
+      openrouter: { key: serverConfig.llm.openrouterApiKey, name: "OPENROUTER_API_KEY" },
+    };
+
+    const { key, name } = keyMap[this.provider];
+    if (!key) {
+      throw new Error(
+        `[LLM] Missing API key for provider "${this.provider}". ` +
+        `Please set the ${name} environment variable.`
+      );
+    }
+  }
+
   public create(): BaseChatModel {
     console.log(
       `\x1b[32m[LLM]\x1b[0m Provider: ${this.provider}, Model: ${this.model}`
     );
+    
+    this.validateApiKey();
 
     switch (this.provider) {
       case "anthropic":

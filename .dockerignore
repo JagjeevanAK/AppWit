@@ -11,9 +11,9 @@ out
 *.tsbuildinfo
 
 # Environment files
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
 # Logs
 *.log

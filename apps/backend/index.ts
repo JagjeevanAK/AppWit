@@ -5,8 +5,12 @@ import routes from "./routes";
 
 const app = express();
 
+const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+    : ["http://localhost:3000", "http://appwit.jagjeevan.me"];
+
 app.use(cors({
-    origin: serverConfig.cors.origins,
+    origin: corsOrigins,
     credentials: true,
     exposedHeaders: ['X-Sandbox-URL', 'X-Sandbox-ID']
 }));
