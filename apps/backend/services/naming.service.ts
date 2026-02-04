@@ -1,6 +1,7 @@
-import { createLLM } from "@appwit/agent";
+import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
+import { serverConfig } from "@appwit/config/server";
 
 const NAME_GENERATION_PROMPT = `You are a project naming assistant. Generate a short, creative, and descriptive name for a coding project based on the user's prompt.
 
@@ -11,36 +12,58 @@ Rules:
 - No special characters, just letters and spaces
 - Should reflect the main purpose/feature of the app
 
-Respond with ONLY the project name, nothing else.`;
+Respond with ONLY the project name, nothing else. No quotes, no explanation.`;
 
-export async function generateProjectName(prompt: string): Promise<string> {
+export async function generateProjectName(prompt: string): Promise<string | null> {
   try {
-    const llm = createLLM();
+    const llm = new ChatOpenAI({
+      model: "gpt-5.2-mini",
+      openAIApiKey: serverConfig.llm.openaiApiKey,
+      maxTokens: 50,
+      temperature: 0.7,
+    });
     
     const response = await llm.invoke([
       new SystemMessage(NAME_GENERATION_PROMPT),
       new HumanMessage(`User's project request: "${prompt}"\n\nGenerate a project name:`),
     ]);
 
-    const name = typeof response.content === 'string' 
-      ? response.content.trim()
-      : String(response.content).trim();
+    // Handle different content types properly
+    let rawName: string;
+    if (typeof response.content === 'string') {
+      rawName = response.content;
+    } else if (Array.isArray(response.content)) {
+      // Handle content blocks array
+      rawName = response.content
+        .map((block) => {
+          if (typeof block === 'string') return block;
+          if (block && typeof block === 'object' && 'text' in block) return block.text;
+          return '';
+        })
+        .join('')
+        .trim();
+    } else {
+      console.error("[NAMING] Unexpected content type:", typeof response.content);
+      return null;
+    }
 
     // Validate and clean the name
-    const cleanName = name
+    const cleanName = rawName
+      .replace(/["'`]/g, '') // Remove quotes
       .replace(/[^a-zA-Z0-9\s]/g, '')
       .trim()
       .slice(0, 30);
 
     if (cleanName.length < 2) {
-      return "New Project";
+      console.log("[NAMING] Generated name too short, skipping");
+      return null;
     }
 
     console.log(`[NAMING] Generated project name: "${cleanName}" from prompt`);
     return cleanName;
   } catch (error) {
     console.error("[NAMING] Error generating project name:", error);
-    return "New Project";
+    return null;
   }
 }
 

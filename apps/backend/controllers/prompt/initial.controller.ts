@@ -187,6 +187,13 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
 
     const session = activeSandboxes.get(sandboxId)!;
 
+    // Start name generation in parallel for new projects
+    let namePromise: Promise<string | null> | null = null;
+    if (isFirst && projectId) {
+      console.log("[NAMING] Starting parallel name generation...");
+      namePromise = generateProjectName(prompt);
+    }
+
     try {
       session.isStreaming = true;
 
@@ -231,16 +238,20 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
         );
       }
 
-      // Generate project name using LLM for new projects
-      if (isFirst && projectId) {
+      // Wait for name generation and update only if we got a valid name
+      if (namePromise) {
         try {
-          const generatedName = await generateProjectName(prompt);
-          await updateProjectName(projectId, generatedName);
-          res.write(
-            `data: ${JSON.stringify({ type: "project_name", name: generatedName })}\n\n`
-          );
+          const generatedName = await namePromise;
+          if (generatedName) {
+            await updateProjectName(projectId, generatedName);
+            res.write(
+              `data: ${JSON.stringify({ type: "project_name", name: generatedName })}\n\n`
+            );
+          } else {
+            console.log("[NAMING] No valid name generated, keeping default");
+          }
         } catch (nameError) {
-          console.error("[NAMING] Error generating project name:", nameError);
+          console.error("[NAMING] Error in name generation:", nameError);
         }
       }
 
