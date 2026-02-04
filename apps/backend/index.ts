@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { serverConfig } from "@appwit/config/server";
 import routes from "./routes";
+import { loggerMiddleware } from "./middleware/logger";
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use(loggerMiddleware);
 
 app.use("/", routes);
 
