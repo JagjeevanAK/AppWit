@@ -349,9 +349,13 @@ export default function ProjectPage() {
     };
   }, [streamState.sandboxId]);
 
+  // Only redirect if project truly doesn't exist (not during initial creation)
   useEffect(() => {
-    if (!loading && (error || !project)) {
-      router.push("/project");
+    // Don't redirect if we have a pending prompt (new project being created)
+    const hasPendingPrompt = typeof window !== 'undefined' && localStorage.getItem("pendingPrompt");
+    if (!loading && !hasPendingPrompt && (error || !project)) {
+      console.log("[PAGE] Project not found, redirecting to projects list");
+      router.push("/projects");
     }
   }, [loading, error, project, router]);
 

@@ -15,7 +15,7 @@ Respond with ONLY the project name, nothing else. No quotes, no explanation.`;
 
 export async function generateProjectName(prompt: string): Promise<string | null> {
   try {
-    const llm = createLLMWithModel("gpt-4o-mini", { maxTokens: 50, temperature: 0.7 });
+    const llm = createLLMWithModel("gpt-5o-mini", { maxTokens: 100, temperature: 0.7 });
     
     const response = await llm.invoke([
       new SystemMessage(NAME_GENERATION_PROMPT),
