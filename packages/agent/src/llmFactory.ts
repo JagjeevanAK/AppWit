@@ -132,3 +132,40 @@ export class LLMFactory {
 export const createLLM = (): BaseChatModel => {
   return LLMFactory.getInstance().create();
 };
+
+export const createLLMWithModel = (model: string, options?: { maxTokens?: number; temperature?: number }): BaseChatModel => {
+  const factory = LLMFactory.getInstance();
+  const provider = factory.getProviderName();
+  
+  console.log(`\x1b[32m[LLM]\x1b[0m Creating custom LLM - Provider: ${provider}, Model: ${model}`);
+
+  switch (provider) {
+    case "anthropic":
+      return new ChatAnthropic({
+        model,
+        anthropicApiKey: serverConfig.llm.anthropicApiKey,
+        maxTokens: options?.maxTokens ?? 1000,
+        temperature: options?.temperature ?? 0.7,
+      });
+
+    case "openai":
+      return new ChatOpenAI({
+        model,
+        openAIApiKey: serverConfig.llm.openaiApiKey,
+        maxTokens: options?.maxTokens ?? 1000,
+        temperature: options?.temperature ?? 0.7,
+      });
+
+    case "openrouter":
+    default:
+      return new ChatOpenAI({
+        model,
+        configuration: {
+          baseURL: "https://openrouter.ai/api/v1",
+          apiKey: serverConfig.llm.openrouterApiKey,
+        },
+        maxTokens: options?.maxTokens ?? 1000,
+        temperature: options?.temperature ?? 0.7,
+      });
+  }
+};

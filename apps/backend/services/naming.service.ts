@@ -1,7 +1,6 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { createLLMWithModel } from "@appwit/agent";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
-import { serverConfig } from "@appwit/config/server";
 
 const NAME_GENERATION_PROMPT = `You are a project naming assistant. Generate a short, creative, and descriptive name for a coding project based on the user's prompt.
 
@@ -16,12 +15,7 @@ Respond with ONLY the project name, nothing else. No quotes, no explanation.`;
 
 export async function generateProjectName(prompt: string): Promise<string | null> {
   try {
-    const llm = new ChatOpenAI({
-      model: "gpt-5.2-mini",
-      openAIApiKey: serverConfig.llm.openaiApiKey,
-      maxTokens: 50,
-      temperature: 0.7,
-    });
+    const llm = createLLMWithModel("gpt-4o-mini", { maxTokens: 50, temperature: 0.7 });
     
     const response = await llm.invoke([
       new SystemMessage(NAME_GENERATION_PROMPT),

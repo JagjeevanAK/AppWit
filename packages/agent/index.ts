@@ -33,7 +33,7 @@ export {
     PLANNER_SYSTEM_PROMPT,
 } from "./src/systemPrompts";
 
-export { createLLM } from "./src/llmFactory";
+export { createLLM, createLLMWithModel } from "./src/llmFactory";
 
 export { getThemeList, getThemeCSS, getThemeInfo, themes } from "./src/data/themes";
 export type { ThemeInfo } from "./src/data/themes";
