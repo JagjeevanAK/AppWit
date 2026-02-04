@@ -194,11 +194,41 @@ export default function ProjectPage() {
       projectId &&
       !project?.r2BackupPath
     ) {
-      // EXISTING project without R2 backup - just show the editor
-      // (This is for projects that were created but user left before backup)
-      console.log("[PAGE] Project has no R2 backup, showing empty editor");
+      // EXISTING project without R2 backup - try to reconnect to sandbox anyway
+      // The sandbox might still be alive even though backup didn't complete
+      console.log("[PAGE] Project has no R2 backup, attempting to load sandbox anyway");
       hasLoadedExistingProject.current = true;
-      setIsInitialOrchestrationComplete(true);
+      setLoadingStatus("Connecting to sandbox...");
+
+      const tryLoadSandbox = async () => {
+        try {
+          const token = localStorage.getItem("auth_token");
+          console.log("[PAGE] Calling /prompt/load/ for project without backup:", projectId);
+
+          const loadResponse = await fetch(`${BackendUrl}/prompt/load/${projectId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+
+          if (loadResponse.ok) {
+            const data = await loadResponse.json();
+            console.log("[PAGE] Sandbox loaded:", data);
+            if (data.sandboxUrl && data.sandboxId) {
+              streamState.setSandbox(data.sandboxUrl, data.sandboxId);
+            }
+          } else {
+            console.log("[PAGE] No active sandbox found, showing empty editor");
+          }
+        } catch (err) {
+          console.error("[PAGE] Error loading sandbox:", err);
+        }
+        setIsInitialOrchestrationComplete(true);
+      };
+
+      tryLoadSandbox();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, project, loading]);
@@ -213,6 +243,14 @@ export default function ProjectPage() {
       setIsInitialOrchestrationComplete(true);
     }
   }, [streamState.isStreaming, streamState.sandboxUrl]);
+
+  // Update project name when LLM generates one
+  useEffect(() => {
+    if (streamState.generatedProjectName) {
+      console.log("[PAGE] Received generated project name:", streamState.generatedProjectName);
+      updateProjectName(streamState.generatedProjectName);
+    }
+  }, [streamState.generatedProjectName, updateProjectName]);
 
   useEffect(() => {
     const sandboxId = streamState.sandboxId;

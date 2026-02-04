@@ -69,6 +69,8 @@ import {
   isFirstMessage,
   getChatHistory,
   generateCodeSummary,
+  generateProjectName,
+  updateProjectName,
 } from "@/services";
 
 const { sandbox } = serverConfig;
@@ -227,6 +229,19 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
           summary,
           summary
         );
+      }
+
+      // Generate project name using LLM for new projects
+      if (isFirst && projectId) {
+        try {
+          const generatedName = await generateProjectName(prompt);
+          await updateProjectName(projectId, generatedName);
+          res.write(
+            `data: ${JSON.stringify({ type: "project_name", name: generatedName })}\n\n`
+          );
+        } catch (nameError) {
+          console.error("[NAMING] Error generating project name:", nameError);
+        }
       }
 
       res.write(

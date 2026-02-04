@@ -119,7 +119,13 @@ export default function ProjectNav({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `project-${Date.now()}.zip`;
+      // Use project name for the zip file, sanitize for filename
+      const safeName = (projectName || "project")
+        .replace(/[^a-zA-Z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .toLowerCase()
+        .slice(0, 50);
+      a.download = `${safeName}.zip`;
       document.body.appendChild(a);
       a.click();
 
@@ -160,7 +166,7 @@ export default function ProjectNav({
           {/* Logo - clickable to navigate to dashboard */}
           <button
             onClick={() => router.push("/")}
-            className="shrink-0 hover:opacity-80 transition-opacity flex items-center"
+            className="shrink-0 hover:opacity-80 transition-opacity flex items-center cursor-pointer"
             title="Go to dashboard"
           >
             <Logo className="w-6 h-6 text-white" />

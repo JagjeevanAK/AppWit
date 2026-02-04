@@ -2,11 +2,10 @@
 
 import { Suspense } from "react"
 import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Loader } from "@/components/ui/loader"
 
 function AuthCallbackContent() {
-    const router = useRouter()
     const searchParams = useSearchParams()
 
     useEffect(() => {
@@ -15,7 +14,7 @@ function AuthCallbackContent() {
         const error = searchParams.get("error")
 
         if (error) {
-            router.push(`/login?error=${error}`)
+            window.location.href = `/login?error=${error}`
             return
         }
 
@@ -28,17 +27,19 @@ function AuthCallbackContent() {
                 // Check for pending prompt
                 const pendingPrompt = localStorage.getItem("pendingPrompt")
                 if (pendingPrompt) {
-                    router.push("/project")
+                    // Use window.location.href for hard navigation to ensure AuthProvider
+                    // reads fresh localStorage data on mount
+                    window.location.href = "/project"
                 } else {
-                    router.push("/")
+                    window.location.href = "/"
                 }
             } catch {
-                router.push("/login?error=invalid_response")
+                window.location.href = "/login?error=invalid_response"
             }
         } else {
-            router.push("/login")
+            window.location.href = "/login"
         }
-    }, [router, searchParams])
+    }, [searchParams])
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">

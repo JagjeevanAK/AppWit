@@ -3,7 +3,7 @@ import { BackendUrl } from "@/config";
 import { useState, useRef, useCallback } from "react";
 
 interface StreamEvent {
-    type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'plan' | 'worker_start' | 'worker_complete' | 'review_start' | 'review_complete' | 'summary';
+    type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'plan' | 'worker_start' | 'worker_complete' | 'review_start' | 'review_complete' | 'summary' | 'project_name';
     content?: string;
     name?: string;
     args?: Record<string, unknown>;
@@ -43,6 +43,7 @@ export function useStream(projectId: string) {
     const [sandboxId, setSandboxId] = useState<string | null>(null);
     const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
     const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
+    const [generatedProjectName, setGeneratedProjectName] = useState<string | null>(null);
     const abortController = useRef<AbortController | null>(null);
 
     if (!BackendUrl) {
@@ -181,6 +182,12 @@ export function useStream(projectId: string) {
                                 setData(event.message);
                             }
                             break;
+                        case 'project_name':
+                            if (event.name) {
+                                setGeneratedProjectName(event.name);
+                                console.log('Generated project name:', event.name);
+                            }
+                            break;
                         case 'done':
                             if (event.sandboxUrl) setSandboxUrl(event.sandboxUrl);
                             if (event.sandboxId) setSandboxId(event.sandboxId);
@@ -297,6 +304,12 @@ export function useStream(projectId: string) {
                                 setData(event.message);
                             }
                             break;
+                        case 'project_name':
+                            if (event.name) {
+                                setGeneratedProjectName(event.name);
+                                console.log('Generated project name:', event.name);
+                            }
+                            break;
                         case 'done':
                             break;
                         case 'error':
@@ -344,6 +357,7 @@ export function useStream(projectId: string) {
         sandboxId,
         toolCalls,
         fileChanges,
+        generatedProjectName,
         startStream,
         continueStream,
         stopStream,
