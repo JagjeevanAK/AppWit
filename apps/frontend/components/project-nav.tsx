@@ -8,6 +8,8 @@ import {
   Terminal,
   PanelLeftOpen,
   PanelLeftClose,
+  Rocket,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackendUrl } from "@/config";
@@ -15,11 +17,14 @@ import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
+import { useDeploy } from "@/hooks/useDeploy";
 
 interface ProjectNavProps {
   projectName?: string;
   onProjectNameChange?: (newName: string) => void;
   sandboxId: string | null;
+  projectId: string;
+  isStreaming: boolean;
   isChatCollapsed: boolean;
   onToggleChat: () => void;
   activeTab: "preview" | "code";
@@ -31,6 +36,8 @@ export default function ProjectNav({
   projectName,
   onProjectNameChange,
   sandboxId,
+  projectId,
+  isStreaming,
   isChatCollapsed,
   onToggleChat,
   activeTab,
@@ -45,6 +52,7 @@ export default function ProjectNav({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, signout } = useAuth();
   const router = useRouter();
+  const { isDeploying, deploymentUrl, deploy } = useDeploy(projectId);
 
   // Update editedName when projectName prop changes
   useEffect(() => {
@@ -136,6 +144,28 @@ export default function ProjectNav({
       toast.error("Failed to download project. Please try again.");
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    if (!sandboxId || isDeploying || isStreaming) return;
+
+    try {
+      const result = await deploy();
+      if (result?.deploymentUrl) {
+        toast.success(
+          result.isRedeploy
+            ? "Redeployed successfully!"
+            : "Deployed to Vercel!",
+          { description: result.deploymentUrl }
+        );
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Deployment failed. Please try again.";
+      toast.error(message);
     }
   };
 
@@ -266,8 +296,50 @@ export default function ProjectNav({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right side - Download + Profile */}
+        {/* Right side - Deploy + Download + Profile */}
         <div className="flex items-center gap-2">
+          {/* Deploy Button */}
+          <button
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-xl transition-all duration-200",
+              "bg-blue-600 text-white hover:bg-blue-700",
+              (isDeploying || isStreaming) && "opacity-50 cursor-not-allowed",
+              !sandboxId && "opacity-30 cursor-not-allowed"
+            )}
+            onClick={handleDeploy}
+            disabled={!sandboxId || isDeploying || isStreaming}
+            title={
+              isStreaming
+                ? "Wait for generation to complete"
+                : sandboxId
+                  ? "Deploy to Vercel"
+                  : "Waiting for sandbox..."
+            }
+          >
+            {isDeploying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Rocket className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {deploymentUrl ? "Redeploy" : "Deploy"}
+            </span>
+          </button>
+
+          {/* Deployment URL */}
+          {deploymentUrl && !isDeploying && (
+            <a
+              href={deploymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-green-400 hover:text-green-300 transition-colors"
+              title={deploymentUrl}
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span className="hidden md:inline">Live</span>
+            </a>
+          )}
+
           {/* Download Button */}
           <button
             className={cn(

@@ -6,3 +6,4 @@ export * from "./context.service";
 export * from "./summary.service";
 export * from "./shutdown.service";
 export * from "./naming.service";
+export * from "./deploy.service";

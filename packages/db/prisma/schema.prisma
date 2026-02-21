@@ -43,10 +43,13 @@ model Project {
   sandboxUrl   String?
   status       ProjectStatus @default(ACTIVE)
   r2BackupPath String?
-  thumbnailUrl String?
-  lastBackupAt DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  thumbnailUrl    String?
+  lastBackupAt    DateTime?
+  vercelProjectId String?
+  vercelDeployUrl String?
+  lastDeployedAt  DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   chats Chat[]

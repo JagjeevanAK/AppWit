@@ -38,6 +38,39 @@ export async function handleContinuePrompt(req: AuthRequest, res: Response) {
         res.setHeader('X-Sandbox-URL', session.sandboxUrl);
         res.setHeader('X-Sandbox-ID', sandboxId);
 
+        // Detect client disconnect so the orchestrator can continue running
+        // even if the user navigates away. Without this, res.write() throws
+        // ERR_STREAM_DESTROYED which breaks the for-await loop and aborts
+        // the orchestrator mid-execution, leaving files partially written.
+        let clientDisconnected = false;
+        req.on("close", () => {
+            clientDisconnected = true;
+            console.log(`[SSE] Client disconnected for sandbox ${sandboxId}`);
+        });
+
+        function safeWrite(data: string): boolean {
+            if (clientDisconnected || res.writableEnded || res.destroyed) {
+                return false;
+            }
+            try {
+                res.write(data);
+                return true;
+            } catch {
+                clientDisconnected = true;
+                return false;
+            }
+        }
+
+        function safeEnd(): void {
+            if (!clientDisconnected && !res.writableEnded && !res.destroyed) {
+                try {
+                    res.end();
+                } catch {
+                    clientDisconnected = true;
+                }
+            }
+        }
+
         console.log(`[Continue] Continuing conversation in sandbox ${sandboxId}`);
 
         try {
@@ -62,10 +95,16 @@ export async function handleContinuePrompt(req: AuthRequest, res: Response) {
                 if (event.type === 'executing') {
                     commandCount++;
                 }
-                res.write(`data: ${JSON.stringify(event)}\n\n`);
+                safeWrite(`data: ${JSON.stringify(event)}\n\n`);
             }
 
             session.isStreaming = false;
+
+            if (clientDisconnected) {
+                console.log(
+                    `[SSE] Client left during streaming for ${sandboxId}, but orchestrator completed successfully (${modifiedFiles.length} files)`
+                );
+            }
 
             const summary = generateCodeSummary(modifiedFiles, commandCount, 'updated');
 
@@ -73,15 +112,15 @@ export async function handleContinuePrompt(req: AuthRequest, res: Response) {
                 await saveMessage(session.chatId, MessageRole.ASSISTANT, summary, summary);
             }
 
-            res.write(`data: ${JSON.stringify({ type: 'summary', message: summary })}\n\n`);
-            res.write(`data: ${JSON.stringify({ type: 'done', sandboxUrl: session.sandboxUrl, sandboxId })}\n\n`);
-            res.end();
+            safeWrite(`data: ${JSON.stringify({ type: 'summary', message: summary })}\n\n`);
+            safeWrite(`data: ${JSON.stringify({ type: 'done', sandboxUrl: session.sandboxUrl, sandboxId })}\n\n`);
+            safeEnd();
 
         } catch (streamError) {
             session.isStreaming = false;
             console.error('Error during orchestration:', streamError);
-            res.write(`data: ${JSON.stringify({ type: 'error', message: 'Orchestration error occurred' })}\n\n`);
-            res.end();
+            safeWrite(`data: ${JSON.stringify({ type: 'error', message: 'Orchestration error occurred' })}\n\n`);
+            safeEnd();
         }
 
     } catch (error) {

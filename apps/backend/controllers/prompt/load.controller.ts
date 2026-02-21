@@ -172,6 +172,15 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
       sandboxUrl = `https://${host}`;
       sandboxId = sbx.sandboxId;
 
+      // Extend timeout immediately — the restore flow (R2 mount, rsync,
+      // bun install, db:push, health-check) can easily exceed the initial
+      // 5-minute creation timeout, causing the sandbox to be killed mid-restore.
+      try {
+        await sbx.setTimeout(15 * 60 * 1000);
+      } catch (timeoutErr) {
+        console.warn(`[LOAD] Could not extend new sandbox timeout:`, timeoutErr);
+      }
+
       let restored = false;
       if (isR2Configured()) {
         const shouldRestore = !!project.r2BackupPath;
@@ -238,7 +247,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
 
       if (restored) {
         console.log(`[LOAD] Waiting for dev server to become ready...`);
-        const maxWaitMs = 60_000;
+        const maxWaitMs = 120_000;
         const pollIntervalMs = 2_000;
         let waited = 0;
         let serverReady = false;
@@ -268,7 +277,7 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
 
         if (!serverReady) {
           console.warn(
-            `[LOAD] Dev server not ready after ${maxWaitMs / 1000}s, returning URL anyway`
+            `[LOAD] Dev server not ready after ${maxWaitMs / 1000}s, returning URL anyway (preview will keep retrying)`
           );
         }
       }

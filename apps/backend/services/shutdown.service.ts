@@ -219,6 +219,17 @@ async function performBackup(
     return false;
   }
 
+  // Defense-in-depth: never backup while agent is actively generating code.
+  // The orchestrator writes files progressively, so backing up mid-stream
+  // would capture a partial state. Callers should check isStreaming before
+  // calling, but this guard prevents any code path from doing so accidentally.
+  if (session.isStreaming) {
+    console.log(
+      `[BACKUP] Agent is streaming for ${sandboxId}, deferring backup to avoid partial state`
+    );
+    return false;
+  }
+
   if (!isR2Configured()) {
     console.log(`[BACKUP] R2 not configured, skipping backup`);
     return false;

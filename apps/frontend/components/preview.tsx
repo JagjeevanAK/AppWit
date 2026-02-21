@@ -8,9 +8,9 @@ interface PreviewProps {
     isStreaming?: boolean;
 }
 
-const MAX_IFRAME_RETRIES = 4;
-const INITIAL_RETRY_DELAY_MS = 5000;
-const MAX_RETRY_DELAY_MS = 30000;
+const MAX_IFRAME_RETRIES = 15;
+const INITIAL_RETRY_DELAY_MS = 3000;
+const MAX_RETRY_DELAY_MS = 10000;
 
 export default function Preview({ preview_url, isStreaming = false }: PreviewProps) {
     const lastValidUrlRef = useRef<string | null>(null);

@@ -56,6 +56,11 @@ export interface ServerConfig {
   session: {
     expiryDays: number;
   };
+
+  vercel: {
+    token: string | undefined;
+    teamId: string | undefined;
+  };
 }
 
 export interface ClientConfig {

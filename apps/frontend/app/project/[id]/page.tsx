@@ -430,6 +430,8 @@ export default function ProjectPage() {
         projectName={project?.name}
         onProjectNameChange={updateProjectName}
         sandboxId={streamState.sandboxId}
+        projectId={projectId}
+        isStreaming={streamState.isStreaming}
         isChatCollapsed={isChatCollapsed}
         onToggleChat={handleToggleChat}
         activeTab={activeTab}

@@ -73,7 +73,7 @@ import {
   type StreamEvent,
 } from "./types";
 
-const BATCH_SIZE = 8; // With maxTokens: 65536, we can handle more files per batch
+const BATCH_SIZE = 3; // With maxTokens: 65536, we can handle more files per batch
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 
