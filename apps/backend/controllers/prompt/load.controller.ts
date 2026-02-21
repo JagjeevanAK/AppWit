@@ -201,6 +201,28 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
 
             if (bunResult.exitCode === 0) {
               console.log(`[LOAD] ✓ Dependencies installed successfully`);
+
+              // Push database schema after restoring dependencies
+              // PostgreSQL is already running from start.sh, and the restored
+              // schema file defines the tables the app needs
+              console.log(`[LOAD] Running db:push to sync database schema...`);
+              try {
+                const dbResult = await sbx.commands.run(
+                  "cd /home/user && bun run db:push 2>&1",
+                  { timeoutMs: 60000 }
+                );
+                if (dbResult.exitCode === 0) {
+                  console.log(`[LOAD] ✓ Database schema synced successfully`);
+                } else {
+                  console.error(
+                    `[LOAD] ✗ db:push failed with exit code ${dbResult.exitCode}`
+                  );
+                  console.error(`[LOAD] stdout:`, dbResult.stdout.slice(-500));
+                  console.error(`[LOAD] stderr:`, dbResult.stderr.slice(-500));
+                }
+              } catch (dbError) {
+                console.error(`[LOAD] Error running db:push:`, dbError);
+              }
             } else {
               console.error(
                 `[LOAD] ✗ bun install failed with exit code ${bunResult.exitCode}`
@@ -214,34 +236,80 @@ export async function handleLoadProject(req: AuthRequest, res: Response) {
         }
       }
 
-      const chatId = await getOrCreateChat(projectId);
+      if (restored) {
+        console.log(`[LOAD] Waiting for dev server to become ready...`);
+        const maxWaitMs = 60_000;
+        const pollIntervalMs = 2_000;
+        let waited = 0;
+        let serverReady = false;
 
-      activeSandboxes.set(sandboxId, {
-        sandbox: sbx,
-        messages: [],
-        sandboxUrl,
-        projectId,
-        chatId,
-        userId,
-        createdAt: new Date(),
-      });
+        while (waited < maxWaitMs) {
+          try {
+            const healthCheck = await fetch(sandboxUrl, {
+              method: "HEAD",
+              signal: AbortSignal.timeout(5_000),
+            });
+            if (
+              healthCheck.ok ||
+              healthCheck.status === 404 ||
+              healthCheck.status === 302
+            ) {
+              serverReady = true;
+              console.log(`[LOAD] Dev server ready after ${waited / 1000}s`);
+              break;
+            }
+          } catch {
+            // Server is still starting up.
+          }
 
-      // Initialize code hash for backup change detection
-      await initializeCodeHash(sandboxId);
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+          waited += pollIntervalMs;
+        }
 
-      // Start auto-backup timer (backs up every 1 min if code changed)
-      startAutoBackup(sandboxId);
+        if (!serverReady) {
+          console.warn(
+            `[LOAD] Dev server not ready after ${maxWaitMs / 1000}s, returning URL anyway`
+          );
+        }
+      }
 
-      console.log(`[LOAD] Sandbox ${sandboxId} ready for project ${projectId}`);
+      try {
+        const chatId = await getOrCreateChat(projectId);
 
-      res.json({
-        sandboxId,
-        sandboxUrl,
-        restored,
-        message: restored
-          ? "Project restored from backup"
-          : "New sandbox created",
-      });
+        activeSandboxes.set(sandboxId, {
+          sandbox: sbx,
+          messages: [],
+          sandboxUrl,
+          projectId,
+          chatId,
+          userId,
+          createdAt: new Date(),
+        });
+
+        // Initialize code hash for backup change detection
+        await initializeCodeHash(sandboxId);
+
+        // Start auto-backup timer (backs up every 1 min if code changed)
+        startAutoBackup(sandboxId);
+
+        console.log(`[LOAD] Sandbox ${sandboxId} ready for project ${projectId}`);
+
+        res.json({
+          sandboxId,
+          sandboxUrl,
+          restored,
+          message: restored
+            ? "Project restored from backup"
+            : "New sandbox created",
+        });
+      } catch (registrationError) {
+        // Sandbox was created but could not be registered — close it to avoid a leak
+        console.error("[LOAD] Failed to register sandbox, closing to prevent leak:", registrationError);
+        sbx.kill().catch((killErr: unknown) =>
+          console.error("[LOAD] Error killing leaked sandbox:", killErr)
+        );
+        throw registrationError;
+      }
     } finally {
       // Always release the lock
       releaseProjectLock(projectId);

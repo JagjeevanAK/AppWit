@@ -17,7 +17,7 @@ function isCodexModel(model: string): boolean {
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   openrouter: "anthropic/claude-sonnet-4-20250514",
   anthropic: "claude-sonnet-4-20250514",
-  openai: "gpt-4o",
+  openai: "gpt-5.2",
 };
 
 const MODEL_ENV_VARS: Record<LLMProvider, string> = {

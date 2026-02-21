@@ -25,7 +25,7 @@ export async function mountR2Bucket(sandbox: Sandbox): Promise<boolean> {
     await sandbox.commands.run("sudo chmod 600 /root/.passwd-s3fs");
     console.log("[R2] Credentials file created");
 
-    const mountCommand = `sudo s3fs ${R2_BUCKET_NAME} ${BACKUP_MOUNT_PATH} -o passwd_file=/root/.passwd-s3fs -o url=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com -o use_path_request_style -o allow_other`;
+    const mountCommand = `sudo s3fs ${R2_BUCKET_NAME} ${BACKUP_MOUNT_PATH} -o passwd_file=/root/.passwd-s3fs -o url=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com -o use_path_request_style -o allow_other -o nonempty`;
 
     console.log(`[R2] Executing mount command...`);
     const result = await sandbox.commands.run(mountCommand, {
@@ -86,6 +86,15 @@ export async function ensureR2Mounted(sandbox: Sandbox): Promise<boolean> {
     );
   } catch {
     // Ignore unmount errors
+  }
+
+  // Clean stale files left from a dead mount to avoid "directory not empty" errors
+  try {
+    await sandbox.commands.run(
+      `rm -rf ${BACKUP_MOUNT_PATH} && mkdir -p ${BACKUP_MOUNT_PATH}`
+    );
+  } catch {
+    // Ignore cleanup errors
   }
 
   const remounted = await mountR2Bucket(sandbox);

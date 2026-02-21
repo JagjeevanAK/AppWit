@@ -3,12 +3,57 @@
 import type { Sandbox } from "e2b";
 import { log, type GraphStateType, type StreamConfig } from "./types";
 
+/**
+ * Check if schema.ts was modified and inject `bun run db:push` if needed.
+ * This ensures the database is synced after schema changes.
+ */
+function injectDbPushIfNeeded(
+  commands: string[],
+  files: { filePath: string }[]
+): string[] {
+  const schemaChanged = files.some((f) =>
+    f.filePath.endsWith("/db/schema.ts")
+  );
+
+  if (!schemaChanged) return commands;
+
+  // Check if db:push is already in the commands list
+  const alreadyHasDbPush = commands.some(
+    (cmd) => cmd.includes("db:push") || cmd.includes("drizzle-kit push")
+  );
+
+  if (alreadyHasDbPush) return commands;
+
+  log.commands("Schema change detected, injecting db:push command");
+  return [...commands, "bun run db:push"];
+}
+
+/**
+ * Returns true for package-install commands that may prompt for confirmation.
+ * Only these commands should have `yes |` prepended.
+ */
+function isInstallCommand(cmd: string): boolean {
+  const t = cmd.trim().toLowerCase();
+  return (
+    t === "bun install" ||
+    t.startsWith("bun install ") ||
+    t.startsWith("bun add ") ||
+    t.startsWith("npm install") ||
+    t.startsWith("npm i ") ||
+    t.startsWith("npx ") ||
+    t.startsWith("bunx ")
+  );
+}
+
 export function createCommandHandlerNode(sandbox: Sandbox) {
   return async (
     state: GraphStateType,
     config?: StreamConfig
   ): Promise<Partial<GraphStateType>> => {
-    const commands = state.commands || [];
+    const commands = injectDbPushIfNeeded(
+      state.commands || [],
+      state.files || []
+    );
 
     if (commands.length === 0) {
       log.commands("No commands to execute");
@@ -30,7 +75,7 @@ export function createCommandHandlerNode(sandbox: Sandbox) {
       });
 
       try {
-        const cmdToRun = `yes | ${cmd}`;
+        const cmdToRun = isInstallCommand(cmd) ? `yes | ${cmd}` : cmd;
         log.commands(`Running: ${cmdToRun}`);
 
         const result = await sandbox.commands.run(cmdToRun, {

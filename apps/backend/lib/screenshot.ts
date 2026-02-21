@@ -63,6 +63,12 @@ export async function captureAndUploadScreenshot(
     return null;
   }
 
+  if (r2.publicUrl.includes(".r2.cloudflarestorage.com")) {
+    console.warn(
+      "[SCREENSHOT] R2_PUBLIC_URL appears to be a private S3 endpoint. Thumbnails may not be publicly accessible."
+    );
+  }
+
   try {
     console.log(
       `[SCREENSHOT] Capturing screenshot for project ${projectId}...`

@@ -8,12 +8,17 @@ import {
     generateCodeSummary,
     buildEnhancedPrompt
 } from "@/services";
+import { buildPromptWithTheme } from "@/lib/prompt-utils";
 
 export async function handleContinuePrompt(req: AuthRequest, res: Response) {
-    const { prompt, sandboxId } = req.body;
+    const { prompt, sandboxId, theme } = req.body;
 
     if (!sandboxId) {
         return res.status(400).json({ error: 'sandboxId is required' });
+    }
+
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+        return res.status(400).json({ error: 'prompt is required' });
     }
 
     const session = activeSandboxes.get(sandboxId);
@@ -39,8 +44,9 @@ export async function handleContinuePrompt(req: AuthRequest, res: Response) {
             session.isStreaming = true;
 
             console.log(`[Continue] Building enhanced prompt with context...`);
+            const promptWithTheme = buildPromptWithTheme(prompt, theme);
             const enhancedPrompt = await buildEnhancedPrompt(
-                prompt,
+                promptWithTheme,
                 session.projectId,
                 session.chatId,
                 session.sandbox

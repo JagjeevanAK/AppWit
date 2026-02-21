@@ -77,6 +77,9 @@ export default function CodeEditor({
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const processedChangesRef = useRef<number>(0);
   const editorRef = useRef<any>(null);
+  const isFetchingFilesRef = useRef(false);
+  const queuedRefetchRef = useRef(false);
+  const wasStreamingRef = useRef(false);
 
   // Find app/page.tsx specifically, fallback to first file
   const findAppPageFile = useCallback((nodes: FileNode[]): FileNode | null => {
@@ -118,6 +121,15 @@ export default function CodeEditor({
         console.log("No sandboxId available yet");
         return;
       }
+
+      if (isFetchingFilesRef.current) {
+        if (isRefetch) {
+          queuedRefetchRef.current = true;
+        }
+        return;
+      }
+
+      isFetchingFilesRef.current = true;
 
       if (!isRefetch) {
         setIsLoadingFiles(true);
@@ -185,6 +197,12 @@ export default function CodeEditor({
           console.log("Setting isLoadingFiles to false");
           setIsLoadingFiles(false);
         }
+        isFetchingFilesRef.current = false;
+
+        if (queuedRefetchRef.current) {
+          queuedRefetchRef.current = false;
+          void loadSandboxFiles(true);
+        }
       }
     },
     [
@@ -246,7 +264,7 @@ export default function CodeEditor({
   }, [fileChanges, sandboxId, hasInitialLoad, loadSandboxFiles, readFile]);
 
   useEffect(() => {
-    if (!isStreaming || !sandboxId || !hasInitialLoad) {
+    if (!isStreaming || !sandboxId || !hasInitialLoad || activeTab !== "code") {
       return;
     }
 
@@ -257,15 +275,18 @@ export default function CodeEditor({
     return () => {
       clearInterval(pollInterval);
     };
-  }, [isStreaming, sandboxId, hasInitialLoad, loadSandboxFiles]);
+  }, [isStreaming, sandboxId, hasInitialLoad, loadSandboxFiles, activeTab]);
 
   useEffect(() => {
-    if (!isStreaming && hasInitialLoad && sandboxId) {
+    const wasStreaming = wasStreamingRef.current;
+
+    if (wasStreaming && !isStreaming && hasInitialLoad && sandboxId) {
       console.log("Streaming completed, final refetch...");
-      loadSandboxFiles(true);
+      void loadSandboxFiles(true);
       processedChangesRef.current = 0;
       clearFileChanges();
     }
+    wasStreamingRef.current = isStreaming;
   }, [
     isStreaming,
     hasInitialLoad,

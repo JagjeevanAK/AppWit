@@ -74,7 +74,11 @@ export function useStream(projectId: string) {
         }
     };
 
-    const startStream = async (prompt: string, backendUrl: string = `${BackendUrl}/prompt` || "") => {
+    const startStream = async (
+        prompt: string,
+        backendUrl: string = `${BackendUrl}/prompt` || "",
+        theme?: string
+    ) => {
         setIsStreaming(true);
         setData("");
         setError(null);
@@ -91,7 +95,7 @@ export function useStream(projectId: string) {
 
             const response = await fetch(backendUrl, {
                 method: "POST",
-                body: JSON.stringify({ prompt, projectId }),
+                body: JSON.stringify({ prompt, projectId, theme: theme || undefined }),
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
@@ -211,7 +215,11 @@ export function useStream(projectId: string) {
         }
     };
 
-    const continueStream = useCallback(async (prompt: string, existingSandboxId: string) => {
+    const continueStream = useCallback(async (
+        prompt: string,
+        existingSandboxId: string,
+        theme?: string
+    ) => {
         if (!existingSandboxId) {
             setError("No sandbox ID provided");
             return;
@@ -233,7 +241,11 @@ export function useStream(projectId: string) {
 
             const response = await fetch(`${BackendUrl}/prompt/continue`, {
                 method: "POST",
-                body: JSON.stringify({ prompt, sandboxId: existingSandboxId }),
+                body: JSON.stringify({
+                    prompt,
+                    sandboxId: existingSandboxId,
+                    theme: theme || undefined
+                }),
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`

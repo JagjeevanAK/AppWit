@@ -37,6 +37,7 @@ REQUIREMENTS:
 4. For API routes, export GET/POST/PUT/DELETE functions as needed
 5. For database schema, add proper table definitions with all fields
 6. Commands array should include any bun add or shadcn adds needed
+7. If you modify /home/user/lib/db/schema.ts, include "bun run db:push" in commands to sync the database
 7. Do NOT modify globals.css (theme is auto-applied)
 
 FILE TEMPLATES:

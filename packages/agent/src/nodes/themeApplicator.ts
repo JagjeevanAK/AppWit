@@ -1,16 +1,14 @@
 // Theme applicator node - applies CSS theme to globals.css
 
 import type { Sandbox } from "e2b";
-import { getThemeCSS, getThemeList, type ThemeInfo } from "../data/themes";
+import { getThemeCSS, getThemeNames } from "../data/themes";
 import { log, type GraphStateType, type StreamConfig } from "./types";
 
 // Default theme to use when none specified
 const DEFAULT_THEME = "vercel";
 
 // Get list of valid theme names for validation
-const VALID_THEMES = new Set(
-  getThemeList().map((t: ThemeInfo) => t.name.toLowerCase().replace(/\s+/g, "-"))
-);
+const VALID_THEMES = new Set(getThemeNames());
 
 /**
  * Validates and normalizes a theme name
@@ -23,10 +21,22 @@ function validateThemeName(
     return null;
   }
 
-  const normalized = themeName.toLowerCase().trim().replace(/\s+/g, "-");
+  const normalized = themeName.toLowerCase().trim();
+  const withoutSpaces = normalized.replace(/\s+/g, "");
+  const withHyphens = normalized.replace(/\s+/g, "-");
+  const compact = normalized.replace(/[\s-]+/g, "");
 
   if (VALID_THEMES.has(normalized)) {
     return normalized;
+  }
+  if (VALID_THEMES.has(withoutSpaces)) {
+    return withoutSpaces;
+  }
+  if (VALID_THEMES.has(withHyphens)) {
+    return withHyphens;
+  }
+  if (VALID_THEMES.has(compact)) {
+    return compact;
   }
 
   log.theme(

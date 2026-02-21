@@ -23,8 +23,16 @@ interface ChatBarProps {
     sandboxUrl: string | null;
     sandboxId: string | null;
     toolCalls: ToolCall[];
-    startStream: (prompt: string, backendUrl?: string) => Promise<void>;
-    continueStream: (prompt: string, sandboxId: string) => Promise<void>;
+    startStream: (
+      prompt: string,
+      backendUrl?: string,
+      theme?: string
+    ) => Promise<void>;
+    continueStream: (
+      prompt: string,
+      sandboxId: string,
+      theme?: string
+    ) => Promise<void>;
     stopStream: () => void;
     resetStream: () => void;
   };
@@ -85,17 +93,12 @@ export default function ChatBar({
       shouldSaveMessageRef.current = true;
       currentToolCallsRef.current = [];
 
-      let promptToSend = message;
-      if (theme) {
-        promptToSend += `\n\nIMPORTANT: The user has explicitly selected the '${theme}' theme. Please apply this theme.`;
-      }
-
       try {
         if (sandboxId) {
           console.log("Continuing conversation in sandbox:", sandboxId);
-          await continueStream(promptToSend, sandboxId);
+          await continueStream(message, sandboxId, theme);
         } else {
-          await startStream(promptToSend);
+          await startStream(message, undefined, theme);
         }
         setIsWaitingForResponse(false);
       } catch (err) {

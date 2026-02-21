@@ -6,16 +6,58 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { BackendUrl } from "@/config";
 import { toast } from "@/components/ui/sonner";
-import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 
 type ProjectStatus = "ready" | "backing_up" | "active";
 
-// Thumbnail component with error handling
-function ProjectThumbnail({ src, alt }: { src: string; alt: string }) {
+// Thumbnail component — fetches via authenticated backend proxy to avoid
+// exposing the private R2 URL to next/image optimization (which would 400).
+function ProjectThumbnail({
+  projectId,
+  alt,
+}: {
+  projectId: string;
+  alt: string;
+}) {
   const [hasError, setHasError] = useState(false);
+  const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(null);
 
-  if (hasError) {
+  useEffect(() => {
+    let isMounted = true;
+    let objectUrl: string | null = null;
+
+    const loadThumbnail = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          setHasError(true);
+          return;
+        }
+
+        const response = await fetch(
+          `${BackendUrl}/project/${projectId}/thumbnail`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!response.ok) throw new Error(`${response.status}`);
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (isMounted) setThumbnailSrc(objectUrl);
+      } catch {
+        if (isMounted) setHasError(true);
+      }
+    };
+
+    loadThumbnail();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [projectId]);
+
+  if (hasError || !thumbnailSrc) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-white/10">
         <svg
@@ -36,13 +78,12 @@ function ProjectThumbnail({ src, alt }: { src: string; alt: string }) {
   }
 
   return (
-    <Image
-      src={src}
+    <img
+      src={thumbnailSrc}
       alt={alt}
-      fill
-      className="object-cover object-top"
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+      className="h-full w-full object-cover object-top"
       onError={() => setHasError(true)}
+      loading="lazy"
     />
   );
 }
@@ -246,7 +287,7 @@ export default function ProjectsPage() {
                   <div className="relative aspect-[16/10] bg-black/20 overflow-hidden">
                     {project.thumbnailUrl ? (
                       <ProjectThumbnail
-                        src={project.thumbnailUrl}
+                        projectId={project.id}
                         alt={`${project.name} preview`}
                       />
                     ) : (

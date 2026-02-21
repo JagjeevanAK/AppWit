@@ -81,6 +81,7 @@ CRITICAL RULES:
    - ONLY include commands for components/packages NOT already installed
    - Use --yes flag: "npx shadcn@latest add dropdown-menu --yes"
    - For packages: "bun add zod"
+   - If you modify /home/user/lib/db/schema.ts, include "bun run db:push" in commands to sync the database
    - Return empty array if no commands needed: "commands": []
 
 9. MIDDLEWARE:

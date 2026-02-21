@@ -15,7 +15,7 @@ Respond with ONLY the project name, nothing else. No quotes, no explanation.`;
 
 export async function generateProjectName(prompt: string): Promise<string | null> {
   try {
-    const llm = createLLMWithModel("gpt-5o-mini", { maxTokens: 100, temperature: 0.7 });
+    const llm = createLLMWithModel("gpt-5.2", { maxTokens: 100, temperature: 0.7 });
     
     const response = await llm.invoke([
       new SystemMessage(NAME_GENERATION_PROMPT),
@@ -65,13 +65,9 @@ export async function updateProjectName(
   projectId: string,
   name: string
 ): Promise<void> {
-  try {
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { name },
-    });
-    console.log(`[NAMING] Updated project ${projectId} name to: "${name}"`);
-  } catch (error) {
-    console.error("[NAMING] Error updating project name:", error);
-  }
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { name },
+  });
+  console.log(`[NAMING] Updated project ${projectId} name to: "${name}"`);
 }

@@ -48,7 +48,7 @@ RULES:
 6. Return "commands": [] if no new packages needed
 7. PRESERVE existing code unless explicitly asked to remove/change it
 8. Server Components are default; add "use client" only for interactive components
-9. For database changes, update /home/user/lib/db/schema.ts
+9. For database changes, update /home/user/lib/db/schema.ts and include "bun run db:push" in commands
 
 Return ONLY the JSON object.
 `;

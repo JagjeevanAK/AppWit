@@ -56,6 +56,20 @@ export async function getProjectCodeHash(
 
     return null;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const name = error instanceof Error ? error.name : "";
+
+    const sandboxDead =
+      name === "NotFoundError" ||
+      name === "TimeoutError" ||
+      message.includes("Sandbox is probably not running anymore") ||
+      message.includes("sandbox timeout") ||
+      message.includes("not found");
+
+    if (sandboxDead) {
+      throw error;
+    }
+
     console.error("[R2] Error generating code hash:", error);
     return null;
   }

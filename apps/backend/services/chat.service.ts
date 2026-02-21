@@ -109,10 +109,23 @@ export async function getProjectChatMessages(projectId: string) {
     },
   });
 
-  return messages.map((msg) => ({
-    id: msg.id,
-    type: msg.role === MessageRole.USER ? "user" : "response",
-    content: msg.summary || msg.content, // Use summary for assistant messages if available
-    createdAt: msg.createdAt,
-  }));
+  return messages.map((msg) => {
+    let displayContent = msg.summary || msg.content;
+
+    if (msg.role === MessageRole.USER) {
+      const idx = displayContent.indexOf(
+        "\n\nIMPORTANT: The user has explicitly selected"
+      );
+      if (idx !== -1) {
+        displayContent = displayContent.substring(0, idx);
+      }
+    }
+
+    return {
+      id: msg.id,
+      type: msg.role === MessageRole.USER ? "user" : "response",
+      content: displayContent, // Use summary for assistant messages if available
+      createdAt: msg.createdAt,
+    };
+  });
 }

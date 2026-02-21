@@ -32,7 +32,6 @@ export default function ProjectPage() {
   const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
   const [initialTheme, setInitialTheme] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
-  const hasNotifiedLeaving = useRef(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
   const [chatPanelSize, setChatPanelSize] = useState(25);
@@ -105,8 +104,14 @@ export default function ProjectPage() {
       return;
     }
 
+    // Initial generation flow is already selected; do not attempt project load.
+    if (hasStartedInitialStream.current) {
+      return;
+    }
+
     if (pendingPrompt) {
       // NEW project with a prompt - let ChatBar handle the streaming
+      hasLoadedExistingProject.current = true;
       setInitialPrompt(pendingPrompt);
       const theme = localStorage.getItem("pendingTheme");
       if (theme) {
@@ -118,6 +123,7 @@ export default function ProjectPage() {
       setLoadingStatus("Building your application...");
       // Allow ChatBar to render so it can trigger the stream
       setIsInitialOrchestrationComplete(true);
+      return;
     } else if (
       !hasLoadedExistingProject.current &&
       projectId &&
@@ -292,16 +298,7 @@ export default function ProjectPage() {
       console.log("[PAGE] sendBeacon result:", sent ? "sent" : "failed");
 
       if (!sent) {
-        // Fallback: try with XMLHttpRequest (synchronous) for more reliability
-        try {
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", url, false); // false = synchronous
-          xhr.setRequestHeader("Content-Type", "application/json");
-          xhr.send(data);
-          console.log("[PAGE] XHR fallback completed");
-        } catch (err) {
-          console.error("[PAGE] XHR fallback failed:", err);
-        }
+        console.warn("[PAGE] sendBeacon failed, notification may be lost");
       }
     };
 
@@ -364,42 +361,6 @@ export default function ProjectPage() {
     return (
       <div className="h-screen w-screen bg-background flex items-center justify-center">
         <Loader size="lg" text="Loading project..." />
-      </div>
-    );
-  }
-
-  if (error || !project) {
-    return null;
-  }
-
-  // Show full-page loader during initial orchestration or project loading
-  if (!isInitialOrchestrationComplete) {
-    return (
-      <div className="h-screen w-screen bg-background flex flex-col items-center justify-center gap-6">
-        {/* Loading animation */}
-        <Loader size="lg" />
-
-        {/* Status text */}
-        <div className="text-center space-y-2">
-          <div className="text-foreground text-xl font-medium">{loadingStatus}</div>
-          <div className="text-muted-foreground text-sm">This may take a moment...</div>
-        </div>
-
-        {/* Progress dots */}
-        <div className="flex space-x-2">
-          <div
-            className="w-2 h-2 bg-primary rounded-full animate-bounce"
-            style={{ animationDelay: "0ms" }}
-          ></div>
-          <div
-            className="w-2 h-2 bg-primary rounded-full animate-bounce"
-            style={{ animationDelay: "150ms" }}
-          ></div>
-          <div
-            className="w-2 h-2 bg-primary rounded-full animate-bounce"
-            style={{ animationDelay: "300ms" }}
-          ></div>
-        </div>
       </div>
     );
   }

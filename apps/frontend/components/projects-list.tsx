@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { BackendUrl } from "@/config";
 import { toast } from "@/components/ui/sonner";
-import Image from "next/image";
 
 type ProjectStatus = "ready" | "backing_up" | "active";
 
@@ -14,10 +13,66 @@ type ProjectStatus = "ready" | "backing_up" | "active";
 const PROJECTS_PER_PAGE = 8;
 
 // Thumbnail component with error handling
-function ProjectThumbnail({ src, alt }: { src: string; alt: string }) {
+function ProjectThumbnail({
+  projectId,
+  alt,
+}: {
+  projectId: string;
+  alt: string;
+}) {
   const [hasError, setHasError] = useState(false);
+  const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(null);
 
-  if (hasError) {
+  useEffect(() => {
+    let isMounted = true;
+    let objectUrl: string | null = null;
+
+    const loadThumbnail = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          setHasError(true);
+          return;
+        }
+
+        const response = await fetch(
+          `${BackendUrl}/project/${projectId}/thumbnail`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Thumbnail request failed with ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+
+        if (isMounted) {
+          setThumbnailSrc(objectUrl);
+          setHasError(false);
+        }
+      } catch {
+        if (isMounted) {
+          setHasError(true);
+        }
+      }
+    };
+
+    loadThumbnail();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [projectId]);
+
+  if (hasError || !thumbnailSrc) {
     // Show placeholder on error
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-white/10">
@@ -39,13 +94,12 @@ function ProjectThumbnail({ src, alt }: { src: string; alt: string }) {
   }
 
   return (
-    <Image
-      src={src}
+    <img
+      src={thumbnailSrc}
       alt={alt}
-      fill
-      className="object-cover object-top"
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+      className="h-full w-full object-cover object-top"
       onError={() => setHasError(true)}
+      loading="lazy"
     />
   );
 }
@@ -72,23 +126,25 @@ export function ProjectsList() {
     const token = localStorage.getItem("auth_token");
     const newStatuses: Record<string, ProjectStatus> = {};
 
-    for (const project of projects.slice(0, PROJECTS_PER_PAGE)) {
-      try {
-        const response = await fetch(
-          `${BackendUrl}/prompt/status/${project.id}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+    await Promise.all(
+      projects.slice(0, PROJECTS_PER_PAGE).map(async (project) => {
+        try {
+          const response = await fetch(
+            `${BackendUrl}/prompt/status/${project.id}`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            newStatuses[project.id] = data.status;
           }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          newStatuses[project.id] = data.status;
+        } catch {
+          // Ignore errors, assume ready
+          newStatuses[project.id] = "ready";
         }
-      } catch {
-        // Ignore errors, assume ready
-        newStatuses[project.id] = "ready";
-      }
-    }
+      })
+    );
 
     setProjectStatuses(newStatuses);
   }, [projects]);
@@ -188,7 +244,7 @@ export function ProjectsList() {
               <div className="relative aspect-[16/10] bg-black/20 overflow-hidden">
                 {project.thumbnailUrl ? (
                   <ProjectThumbnail
-                    src={project.thumbnailUrl}
+                    projectId={project.id}
                     alt={`${project.name} preview`}
                   />
                 ) : (

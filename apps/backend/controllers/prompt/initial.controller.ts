@@ -72,16 +72,21 @@ import {
   generateProjectName,
   updateProjectName,
 } from "@/services";
+import { buildPromptWithTheme } from "@/lib/prompt-utils";
 
 const { sandbox } = serverConfig;
 
 export async function handleInitialPrompt(req: AuthRequest, res: Response) {
-  const { prompt, projectId } = req.body;
+  const { prompt, projectId, theme } = req.body;
   const userId = req.userId;
 
   // Validate required fields
   if (!projectId) {
     return res.status(400).json({ error: "projectId is required" });
+  }
+
+  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+    return res.status(400).json({ error: "prompt is required" });
   }
 
   if (!userId) {
@@ -206,10 +211,11 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
 
       const createdFiles: string[] = [];
       let commandCount = 0;
+      const orchestratorPrompt = buildPromptWithTheme(prompt, theme);
 
       for await (const event of streamMultiAgentOrchestrator(
         sbx,
-        prompt,
+        orchestratorPrompt,
         systemPromptToUse
       )) {
         if (event.type === "file_created" && event.filePath) {
