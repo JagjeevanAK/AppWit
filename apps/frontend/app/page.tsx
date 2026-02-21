@@ -1,7 +1,7 @@
 "use client";
 
 import InputBox from "@/components/inputbox";
-import DotGrid from "@/components/dotGrid";
+import Threads from "@/components/Threads";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -27,15 +27,16 @@ export default function Home() {
 
   return (
     <div className="relative flex items-center min-h-screen justify-center flex-col text-white overflow-hidden py-12 bg-black">
-      {/* Background DotGrid */}
+      {/* Background Threads */}
       <div className="absolute inset-0 z-0">
-        <DotGrid
-          baseColor="#201e24"
-          activeColor="#ece9e4"
-          dotSize={8}
-          gap={24}
-          proximity={120}
-        />
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          <Threads
+            color={[1, 1, 1]}
+            amplitude={1.7}
+            distance={0}
+            enableMouseInteraction
+          />
+        </div>
       </div>
 
       {/* Content */}
