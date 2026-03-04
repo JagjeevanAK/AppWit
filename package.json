@@ -9,7 +9,8 @@
         "clean": "turbo run clean",
         "start": "turbo run start",
         "start:frontend": "bun run --cwd apps/frontend start",
-        "start:backend": "bun run --cwd apps/backend start"
+        "start:backend": "bun run --cwd apps/backend start",
+        "postinstall": "bun run --cwd packages/db generate"
     },
     "devDependencies": {
         "@types/ms": "^2.1.0",
