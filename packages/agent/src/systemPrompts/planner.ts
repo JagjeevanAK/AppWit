@@ -18,7 +18,7 @@ ${AVAILABLE_THEMES}
 DEBUGGING & ERROR FIXING:
 When the user reports a bug, error, or something not working:
 1. Set projectType to "fix" 
-2. The system will check dev server logs FIRST using getDevLogs tool
+2. Use any provided dev server logs/context to identify the root cause first
 3. Create tasks to fix the actual error found in logs
 4. Focus on root cause, not symptoms
 5. Dev server hot-reloads automatically after fixes - no restart needed
@@ -170,7 +170,7 @@ Analysis: User reports a bug = need to check logs and fix
   "recommendedTheme": null,
   "themeReason": "Keeping current theme, just fixing bugs",
   "tasks": [
-    {"id": 1, "file": "CHECK_LOGS", "action": "update", "description": "First check dev server logs with getDevLogs to identify the error"}
+    {"id": 1, "file": "/home/user/app/page.tsx", "action": "update", "description": "Fix the runtime/compile error identified from logs and update the affected page code"}
   ]
 }
 

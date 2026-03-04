@@ -4,6 +4,9 @@ import type { Sandbox } from "e2b";
 import { prisma } from "@/lib/prisma";
 import { getRecentMessages } from "./chat.service";
 
+const DEBUG_KEYWORDS =
+  /\b(error|not working|broken|fix|bug|issue|failed|crash|problem|wrong|doesn't work)\b/i;
+
 /**
  * Reads the main page.tsx (Next.js) or App.tsx (Vite) file from the sandbox to provide context for the LLM
  */
@@ -28,6 +31,35 @@ export async function getCurrentProjectContext(sandbox: Sandbox): Promise<string
         // App.tsx might not exist
     }
     return '';
+}
+
+async function getRecentDevLogs(sandbox: Sandbox, maxLines: number = 120): Promise<string> {
+    const logPath = "/home/user/.logs/dev-server.log";
+
+    try {
+        const existsResult = await sandbox.commands.run(
+            `test -f ${logPath} && echo "exists" || echo "missing"`
+        );
+        if (existsResult.stdout.trim() !== "exists") {
+            return "";
+        }
+
+        const logsResult = await sandbox.commands.run(
+            `tail -n ${maxLines} ${logPath}`,
+            { timeoutMs: 10000 }
+        );
+        const logs = logsResult.stdout.trim();
+
+        if (!logs) {
+            return "";
+        }
+
+        // Keep context bounded so we don't overwhelm the prompt window.
+        const boundedLogs = logs.slice(-8000);
+        return `\n\nRECENT DEV SERVER LOGS:\n\`\`\`\n${boundedLogs}\n\`\`\``;
+    } catch {
+        return "";
+    }
 }
 
 /**
@@ -67,6 +99,12 @@ export async function buildEnhancedPrompt(
     // Get current project context
     const projectContext = await getCurrentProjectContext(sandbox);
     enhancedPrompt += projectContext;
+
+    // For debugging requests, include recent dev-server logs when available.
+    if (DEBUG_KEYWORDS.test(prompt)) {
+        const logsContext = await getRecentDevLogs(sandbox);
+        enhancedPrompt += logsContext;
+    }
 
     return enhancedPrompt;
 }

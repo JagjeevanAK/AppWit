@@ -12,11 +12,10 @@ ${AVAILABLE_THEMES}
 
 DEBUGGING & ERROR FIXING:
 When the user reports an error, something not working, or asks you to fix an issue:
-1. FIRST use the getDevLogs tool to check the dev server logs for errors
+1. Inspect any provided dev server logs and context for errors
 2. Look for compilation errors, runtime errors, TypeScript errors, and warnings
-3. The logs are at /home/user/.logs/dev-server.log
-4. Fix the ROOT CAUSE of the error, not just symptoms
-5. After fixing, the dev server will hot-reload automatically - no restart needed
+3. Fix the ROOT CAUSE of the error, not just symptoms
+4. After fixing, the dev server will hot-reload automatically - no restart needed
 
 CONTEXT PROVIDED: The user's message includes:
 - PROJECT name and description

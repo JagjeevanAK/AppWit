@@ -67,7 +67,7 @@ import {
   getOrCreateChat,
   saveMessage,
   isFirstMessage,
-  getChatHistory,
+  buildEnhancedPrompt,
   generateCodeSummary,
   generateProjectName,
   updateProjectName,
@@ -145,26 +145,16 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
 
     await saveMessage(chatId, MessageRole.USER, prompt);
 
-    let initialMessages: BaseMessage[];
+    const systemPromptToUse = isFirst
+      ? INITIAL_SYSTEM_PROMPT
+      : CONTEXT_SYSTEM_PROMPT;
+    const initialMessages: BaseMessage[] = [new SystemMessage(systemPromptToUse)];
 
-    if (isFirst) {
-      console.log(`[Phase 1] Initial project creation for chat ${chatId}`);
-      initialMessages = [new SystemMessage(INITIAL_SYSTEM_PROMPT)];
-    } else {
-      console.log(
-        `[Phase 2] Iterative changes for chat ${chatId}, fetching history`
-      );
-      const history = await getChatHistory(chatId, 11);
-      history.pop();
-
-      initialMessages = [
-        new SystemMessage(CONTEXT_SYSTEM_PROMPT),
-        ...history.slice(-10),
-      ];
-      console.log(
-        `Including ${initialMessages.length - 1} previous messages as context`
-      );
-    }
+    console.log(
+      isFirst
+        ? `[Phase 1] Initial project creation for chat ${chatId}`
+        : `[Phase 2] Iterative update for chat ${chatId}`
+    );
 
     activeSandboxes.set(sandboxId, {
       sandbox: sbx,
@@ -234,17 +224,16 @@ export async function handleInitialPrompt(req: AuthRequest, res: Response) {
 
     try {
       session.isStreaming = true;
-
-      const systemPromptToUse = isFirst
-        ? INITIAL_SYSTEM_PROMPT
-        : CONTEXT_SYSTEM_PROMPT;
       console.log(
         `Using ${isFirst ? "INITIAL" : "CONTEXT"} system prompt for orchestrator`
       );
 
       const createdFiles: string[] = [];
       let commandCount = 0;
-      const orchestratorPrompt = buildPromptWithTheme(prompt, theme);
+      const promptWithTheme = buildPromptWithTheme(prompt, theme);
+      const orchestratorPrompt = isFirst
+        ? promptWithTheme
+        : await buildEnhancedPrompt(promptWithTheme, projectId, chatId, sbx);
 
       for await (const event of streamMultiAgentOrchestrator(
         sbx,
