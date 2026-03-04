@@ -4,9 +4,6 @@ import type { Sandbox } from "e2b";
 import { getThemeCSS, getThemeNames } from "../data/themes";
 import { log, type GraphStateType, type StreamConfig } from "./types";
 
-// Default theme to use when none specified
-const DEFAULT_THEME = "vercel";
-
 // Get list of valid theme names for validation
 const VALID_THEMES = new Set(getThemeNames());
 
@@ -52,12 +49,13 @@ export function createThemeApplicatorNode(sandbox: Sandbox) {
   ): Promise<Partial<GraphStateType>> => {
     // Validate theme name
     const validatedTheme = validateThemeName(state.theme);
-    const themeToApply = validatedTheme || DEFAULT_THEME;
 
     if (!validatedTheme) {
-      log.theme(`No valid theme specified, using default: ${DEFAULT_THEME}`);
+      log.theme("No valid theme provided, keeping existing globals.css");
+      return {};
     }
 
+    const themeToApply = validatedTheme;
     log.theme(`Applying theme: ${themeToApply}`);
     config?.configurable?.streamCallback?.({
       type: "executing",

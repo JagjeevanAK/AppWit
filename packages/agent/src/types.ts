@@ -13,6 +13,7 @@ export const CodeGenerationSchema = z.object({
   theme: z
     .string()
     .nullable()
+    .optional()
     .describe(
       "Theme name to apply (or null if theme already set by planner): vercel, twitter, darkmatter, caffeine, claymorphism, graphite, mocha-mousse, elegant-luxury, sage-garden, amethyst-haze"
     ),
