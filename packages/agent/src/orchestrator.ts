@@ -78,7 +78,7 @@ import {
     GraphState,
     type StreamEvent,
     log,
-    plannerNode,
+    createPlannerNode,
     coderNode,
     createThemeApplicatorNode,
     createCommandHandlerNode,
@@ -100,6 +100,7 @@ import {
 export type { StreamEvent };
 
 function createGraph(sandbox: Sandbox) {
+    const planner = createPlannerNode(sandbox);
     const themeApplicator = createThemeApplicatorNode(sandbox);
     const commandHandler = createCommandHandlerNode(sandbox);
     const writer = createWriterNode(sandbox);
@@ -107,7 +108,7 @@ function createGraph(sandbox: Sandbox) {
 
     const graph = new StateGraph(GraphState)
         // Nodes
-        .addNode("planner", plannerNode)
+        .addNode("planner", planner)
         .addNode("codegen", coderNode)
         .addNode("themeApplicator", themeApplicator)
         .addNode("commandHandler", commandHandler)

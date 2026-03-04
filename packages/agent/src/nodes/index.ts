@@ -6,7 +6,7 @@ export {
     log
 } from './types';
 
-export { plannerNode } from './planner';
+export { plannerNode, createPlannerNode } from './planner';
 export { coderNode } from './coder';
 export { createThemeApplicatorNode } from './themeApplicator';
 export { createCommandHandlerNode } from './commandHandler';
