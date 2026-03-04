@@ -3,378 +3,403 @@ import { BackendUrl } from "@/config";
 import { useState, useRef, useCallback } from "react";
 
 interface StreamEvent {
-    type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'plan' | 'worker_start' | 'worker_complete' | 'review_start' | 'review_complete' | 'summary' | 'project_name';
-    content?: string;
-    name?: string;
-    args?: Record<string, unknown>;
+  type:
+    | "text"
+    | "tool_call"
+    | "tool_result"
+    | "done"
+    | "error"
+    | "plan"
+    | "worker_start"
+    | "worker_complete"
+    | "review_start"
+    | "review_complete"
+    | "summary"
+    | "project_name"
+    | "planning"
+    | "plan_complete"
+    | "generating"
+    | "file_started"
+    | "file_created"
+    | "file_removed"
+    | "executing"
+    | "stdout"
+    | "stderr"
+    | "retrying"
+    | "completed"
+    | "cleanup"
+    | "reviewing";
+  content?: string;
+  name?: string;
+  args?: Record<string, unknown>;
+  message?: string;
+  sandboxUrl?: string;
+  sandboxId?: string;
+  taskId?: number;
+  file?: string;
+  filePath?: string;
+  success?: boolean;
+  plan?: {
+    summary: string;
+    tasks: Array<{
+      id: number;
+      file: string;
+      action: string;
+      description: string;
+    }>;
+  };
+  review?: {
+    status: string;
     message?: string;
-    sandboxUrl?: string;
-    sandboxId?: string;
-    taskId?: number;
-    file?: string;
-    success?: boolean;
-    plan?: {
-        summary: string;
-        tasks: Array<{ id: number; file: string; action: string; description: string }>;
-    };
-    review?: {
-        status: string;
-        message?: string;
-        problems?: string[];
-    };
+    problems?: string[];
+  };
+  reviewResult?: {
+    status: string;
+    message?: string | null;
+    problems?: string[] | null;
+    suggestions?: string[] | null;
+  };
 }
 
 interface ToolCall {
-    name: string;
-    args: Record<string, unknown>;
+  name: string;
+  args: Record<string, unknown>;
 }
 
 export interface FileChange {
-    action: 'create' | 'update' | 'delete';
-    path: string;
-    content?: string;
+  action: "create" | "update" | "delete";
+  path: string;
+  content?: string;
 }
 
 export function useStream(projectId: string) {
-    const [data, setData] = useState("");
-    const [isStreaming, setIsStreaming] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
-    const [sandboxId, setSandboxId] = useState<string | null>(null);
-    const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
-    const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
-    const [generatedProjectName, setGeneratedProjectName] = useState<string | null>(null);
-    const abortController = useRef<AbortController | null>(null);
+  const [data, setData] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
+  const [sandboxId, setSandboxId] = useState<string | null>(null);
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
+  const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
+  const [generatedProjectName, setGeneratedProjectName] = useState<
+    string | null
+  >(null);
+  const abortController = useRef<AbortController | null>(null);
 
-    if (!BackendUrl) {
-        console.log("BACKEND_URL is not set in .env file")
+  if (!BackendUrl) {
+    console.log("BACKEND_URL is not set in .env file");
+  }
+
+  const parseSSELine = (line: string): StreamEvent | null => {
+    if (!line.startsWith("data: ")) return null;
+    try {
+      return JSON.parse(line.slice(6)) as StreamEvent;
+    } catch {
+      return null;
+    }
+  };
+
+  const processToolCall = (name: string, args: Record<string, unknown>) => {
+    const fileOps = ["createFile", "updateFile", "deleteFile"];
+    if (fileOps.includes(name) && args.location) {
+      const action =
+        name === "createFile"
+          ? "create"
+          : name === "updateFile"
+            ? "update"
+            : "delete";
+
+      setFileChanges((prev) => [
+        ...prev,
+        {
+          action: action as FileChange["action"],
+          path: args.location as string,
+          content: args.content as string | undefined,
+        },
+      ]);
+    }
+  };
+
+  const applyStreamEvent = (event: StreamEvent) => {
+    switch (event.type) {
+      case "text":
+        if (event.content) {
+          setData((prev) => prev + event.content);
+        }
+        break;
+      case "tool_call":
+        if (event.name && event.args) {
+          setToolCalls((prev) => [...prev, { name: event.name!, args: event.args! }]);
+          processToolCall(event.name, event.args);
+          console.log("Tool call:", event.name, event.args);
+        }
+        break;
+      case "tool_result":
+        console.log("Tool result:", event.name, event.content);
+        break;
+      case "plan":
+      case "plan_complete":
+        if (event.plan) {
+          console.log("Plan received:", event.plan.summary);
+        }
+        break;
+      case "worker_start":
+        console.log("Worker started:", event.taskId, event.file);
+        break;
+      case "worker_complete":
+        if (event.file) {
+          setFileChanges((prev) => [
+            ...prev,
+            {
+              action: "update",
+              path: event.file!,
+            },
+          ]);
+        }
+        console.log("Worker complete:", event.taskId, event.file, event.success);
+        break;
+      case "file_created":
+        if (event.filePath) {
+          const path = event.filePath;
+          setFileChanges((prev) => [
+            ...prev,
+            {
+              action: "update",
+              path,
+            },
+          ]);
+        }
+        break;
+      case "file_removed":
+        if (event.filePath) {
+          const path = event.filePath;
+          setFileChanges((prev) => [
+            ...prev,
+            {
+              action: "delete",
+              path,
+            },
+          ]);
+        }
+        break;
+      case "review_complete":
+        console.log("Review complete:", event.reviewResult || event.review);
+        break;
+      case "summary":
+        if (event.message) {
+          setData(event.message);
+        }
+        break;
+      case "project_name":
+        if (event.name) {
+          setGeneratedProjectName(event.name);
+          console.log("Generated project name:", event.name);
+        }
+        break;
+      case "done":
+        if (event.sandboxUrl) setSandboxUrl(event.sandboxUrl);
+        if (event.sandboxId) setSandboxId(event.sandboxId);
+        break;
+      case "error":
+        setError(event.message || "Unknown error");
+        break;
+      case "planning":
+      case "generating":
+      case "executing":
+      case "stdout":
+      case "stderr":
+      case "review_start":
+      case "reviewing":
+      case "retrying":
+      case "completed":
+      case "cleanup":
+      case "file_started":
+        break;
+    }
+  };
+
+  const consumeSSE = async (response: Response) => {
+    const sandboxUrlHeader = response.headers.get("X-Sandbox-URL");
+    const sandboxIdHeader = response.headers.get("X-Sandbox-ID");
+
+    if (sandboxUrlHeader) {
+      setSandboxUrl(sandboxUrlHeader);
+    } else {
+      console.log("No X-Sandbox-URL header found in response");
     }
 
-    const parseSSELine = (line: string): StreamEvent | null => {
-        if (!line.startsWith('data: ')) return null;
-        try {
-            return JSON.parse(line.slice(6)) as StreamEvent;
-        } catch {
-            return null;
-        }
-    };
+    if (sandboxIdHeader) {
+      setSandboxId(sandboxIdHeader);
+      console.log("Sandbox ID:", sandboxIdHeader);
+    }
 
-    const processToolCall = (name: string, args: Record<string, unknown>) => {
-        const fileOps = ['createFile', 'updateFile', 'deleteFile'];
-        if (fileOps.includes(name) && args.location) {
-            const action = name === 'createFile' ? 'create'
-                : name === 'updateFile' ? 'update'
-                    : 'delete';
+    if (!response.body) {
+      throw new Error("No response body");
+    }
 
-            setFileChanges(prev => [...prev, {
-                action: action as FileChange['action'],
-                path: args.location as string,
-                content: args.content as string | undefined
-            }]);
-        }
-    };
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-    const startStream = async (
-        prompt: string,
-        backendUrl: string = `${BackendUrl}/prompt` || "",
-        theme?: string
-    ) => {
-        setIsStreaming(true);
-        setData("");
-        setError(null);
-        setToolCalls([]);
-        setFileChanges([]);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-        try {
-            abortController.current = new AbortController();
+      buffer += decoder.decode(value, { stream: true });
 
-            const token = localStorage.getItem("auth_token");
-            if (!token) {
-                throw new Error("Not authenticated");
-            }
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-            const response = await fetch(backendUrl, {
-                method: "POST",
-                body: JSON.stringify({ prompt, projectId, theme: theme || undefined }),
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                signal: abortController.current.signal,
-            });
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+        const event = parseSSELine(trimmedLine);
+        if (!event) continue;
 
-            const sandboxUrlHeader = response.headers.get("X-Sandbox-URL");
-            const sandboxIdHeader = response.headers.get("X-Sandbox-ID");
+        applyStreamEvent(event);
+      }
+    }
+  };
 
-            if (sandboxUrlHeader) {
-                setSandboxUrl(sandboxUrlHeader);
-            } else {
-                console.log('No X-Sandbox-URL header found in response');
-            }
+  const startStream = async (
+    prompt: string,
+    backendUrl: string = `${BackendUrl}/prompt` || "",
+    theme?: string
+  ) => {
+    setIsStreaming(true);
+    setData("");
+    setError(null);
+    setToolCalls([]);
+    setFileChanges([]);
 
-            if (sandboxIdHeader) {
-                setSandboxId(sandboxIdHeader);
-                console.log('Sandbox ID:', sandboxIdHeader);
-            }
+    try {
+      abortController.current = new AbortController();
 
-            if (!response.body) {
-                throw new Error("No response body");
-            }
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        body: JSON.stringify({ prompt, projectId, theme: theme || undefined }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        signal: abortController.current.signal,
+      });
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-                buffer += decoder.decode(value, { stream: true });
+      await consumeSSE(response);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        setError(err.message || "Error during stream");
+        console.error("Stream error:", err);
+      } else if (
+        err &&
+        typeof err === "object" &&
+        "name" in err &&
+        err.name !== "AbortError"
+      ) {
+        setError("Error during stream");
+        console.error("Stream error:", err);
+      }
+    } finally {
+      setIsStreaming(false);
+    }
+  };
 
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+  const continueStream = useCallback(
+    async (prompt: string, existingSandboxId: string, theme?: string) => {
+      if (!existingSandboxId) {
+        setError("No sandbox ID provided");
+        return;
+      }
 
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) continue;
+      setIsStreaming(true);
+      setData("");
+      setError(null);
+      setToolCalls([]);
+      setFileChanges([]);
 
-                    const event = parseSSELine(trimmedLine);
-                    if (!event) continue;
+      try {
+        abortController.current = new AbortController();
 
-                    switch (event.type) {
-                        case 'text':
-                            if (event.content) {
-                                setData((prev) => prev + event.content);
-                            }
-                            break;
-                        case 'tool_call':
-                            if (event.name && event.args) {
-                                setToolCalls((prev) => [...prev, { name: event.name!, args: event.args! }]);
-                                processToolCall(event.name, event.args);
-                                console.log('Tool call:', event.name, event.args);
-                            }
-                            break;
-                        case 'tool_result':
-                            console.log('Tool result:', event.name, event.content);
-                            break;
-                        case 'plan':
-                            if (event.plan) {
-                                console.log('Plan received:', event.plan.summary);
-                            }
-                            break;
-                        case 'worker_start':
-                            console.log('Worker started:', event.taskId, event.file);
-                            break;
-                        case 'worker_complete':
-                            if (event.file) {
-                                setFileChanges(prev => [...prev, {
-                                    action: 'update',
-                                    path: event.file!
-                                }]);
-                            }
-                            console.log('Worker complete:', event.taskId, event.file, event.success);
-                            break;
-                        case 'review_complete':
-                            console.log('Review complete:', event.review);
-                            break;
-                        case 'summary':
-                            if (event.message) {
-                                setData(event.message);
-                            }
-                            break;
-                        case 'project_name':
-                            if (event.name) {
-                                setGeneratedProjectName(event.name);
-                                console.log('Generated project name:', event.name);
-                            }
-                            break;
-                        case 'done':
-                            if (event.sandboxUrl) setSandboxUrl(event.sandboxUrl);
-                            if (event.sandboxId) setSandboxId(event.sandboxId);
-                            break;
-                        case 'error':
-                            setError(event.message || 'Unknown error');
-                            break;
-                    }
-                }
-            }
-        } catch (err: unknown) {
-            if (err instanceof Error && err.name !== "AbortError") {
-                setError(err.message || "Error during stream");
-                console.error("Stream error:", err);
-            } else if (err && typeof err === 'object' && 'name' in err && err.name !== "AbortError") {
-                setError("Error during stream");
-                console.error("Stream error:", err);
-            }
-        } finally {
-            setIsStreaming(false);
-        }
-    };
-
-    const continueStream = useCallback(async (
-        prompt: string,
-        existingSandboxId: string,
-        theme?: string
-    ) => {
-        if (!existingSandboxId) {
-            setError("No sandbox ID provided");
-            return;
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          throw new Error("Not authenticated");
         }
 
-        setIsStreaming(true);
-        setData("");
-        setError(null);
-        setToolCalls([]);
-        setFileChanges([]);
+        const response = await fetch(`${BackendUrl}/prompt/continue`, {
+          method: "POST",
+          body: JSON.stringify({
+            prompt,
+            sandboxId: existingSandboxId,
+            theme: theme || undefined,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: abortController.current.signal,
+        });
 
-        try {
-            abortController.current = new AbortController();
-
-            const token = localStorage.getItem("auth_token");
-            if (!token) {
-                throw new Error("Not authenticated");
-            }
-
-            const response = await fetch(`${BackendUrl}/prompt/continue`, {
-                method: "POST",
-                body: JSON.stringify({
-                    prompt,
-                    sandboxId: existingSandboxId,
-                    theme: theme || undefined
-                }),
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                signal: abortController.current.signal,
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const sandboxUrlHeader = response.headers.get("X-Sandbox-URL");
-            const sandboxIdHeader = response.headers.get("X-Sandbox-ID");
-
-            if (sandboxUrlHeader) setSandboxUrl(sandboxUrlHeader);
-            if (sandboxIdHeader) setSandboxId(sandboxIdHeader);
-
-            if (!response.body) {
-                throw new Error("No response body");
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) continue;
-
-                    const event = parseSSELine(trimmedLine);
-                    if (!event) continue;
-
-                    switch (event.type) {
-                        case 'text':
-                            if (event.content) {
-                                setData((prev) => prev + event.content);
-                            }
-                            break;
-                        case 'tool_call':
-                            if (event.name && event.args) {
-                                setToolCalls((prev) => [...prev, { name: event.name!, args: event.args! }]);
-                                processToolCall(event.name, event.args);
-                                console.log('Tool call:', event.name, event.args);
-                            }
-                            break;
-                        case 'tool_result':
-                            console.log('Tool result:', event.name, event.content);
-                            break;
-                        case 'worker_complete':
-                            if (event.file) {
-                                setFileChanges(prev => [...prev, {
-                                    action: 'update',
-                                    path: event.file!
-                                }]);
-                            }
-                            break;
-                        case 'summary':
-                            if (event.message) {
-                                setData(event.message);
-                            }
-                            break;
-                        case 'project_name':
-                            if (event.name) {
-                                setGeneratedProjectName(event.name);
-                                console.log('Generated project name:', event.name);
-                            }
-                            break;
-                        case 'done':
-                            break;
-                        case 'error':
-                            setError(event.message || 'Unknown error');
-                            break;
-                    }
-                }
-            }
-        } catch (err: unknown) {
-            if (err instanceof Error && err.name !== "AbortError") {
-                setError(err.message || "Error during stream");
-                console.error("Stream error:", err);
-            }
-        } finally {
-            setIsStreaming(false);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-    }, []);
 
-    const stopStream = () => {
-        abortController.current?.abort();
+        await consumeSSE(response);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "AbortError") {
+          setError(err.message || "Error during stream");
+          console.error("Stream error:", err);
+        }
+      } finally {
         setIsStreaming(false);
-    };
+      }
+    },
+    []
+  );
 
-    const resetStream = () => {
-        setData("");
-        setError(null);
-        setToolCalls([]);
-        setFileChanges([]);
-    };
+  const stopStream = () => {
+    abortController.current?.abort();
+    setIsStreaming(false);
+  };
 
-    const clearFileChanges = useCallback(() => {
-        setFileChanges([]);
-    }, []);
+  const resetStream = () => {
+    setData("");
+    setError(null);
+    setToolCalls([]);
+    setFileChanges([]);
+  };
 
-    const setSandbox = useCallback((url: string, id: string) => {
-        setSandboxUrl(url);
-        setSandboxId(id);
-    }, []);
+  const clearFileChanges = useCallback(() => {
+    setFileChanges([]);
+  }, []);
 
-    return {
-        data,
-        isStreaming,
-        error,
-        sandboxUrl,
-        sandboxId,
-        toolCalls,
-        fileChanges,
-        generatedProjectName,
-        startStream,
-        continueStream,
-        stopStream,
-        resetStream,
-        clearFileChanges,
-        setSandbox,
-    };
+  const setSandbox = useCallback((url: string, id: string) => {
+    setSandboxUrl(url);
+    setSandboxId(id);
+  }, []);
+
+  return {
+    data,
+    isStreaming,
+    error,
+    sandboxUrl,
+    sandboxId,
+    toolCalls,
+    fileChanges,
+    generatedProjectName,
+    startStream,
+    continueStream,
+    stopStream,
+    resetStream,
+    clearFileChanges,
+    setSandbox,
+  };
 }

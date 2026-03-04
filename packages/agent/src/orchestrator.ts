@@ -175,6 +175,20 @@ export async function* streamOrchestrator(
         tags: ["pipeline", "codegen"],
     });
 
+    const emittedWriteCompletes = new Set<string>();
+    const pendingNodeEvents: StreamEvent[] = [];
+
+    const enqueueNodeEvent = (nodeEvent: StreamEvent): void => {
+        // De-duplicate file_created events emitted by progressive writes + writer node.
+        if (nodeEvent.type === "file_created" && nodeEvent.filePath) {
+            if (emittedWriteCompletes.has(nodeEvent.filePath)) {
+                return;
+            }
+            emittedWriteCompletes.add(nodeEvent.filePath);
+        }
+        pendingNodeEvents.push(nodeEvent);
+    };
+
     // Create a write function for progressive file writing during codegen
     const writeFilesToSandbox = async (files: FileContent[]): Promise<string[]> => {
         const writtenPaths: string[] = [];
@@ -189,14 +203,17 @@ export async function* streamOrchestrator(
                 await sandbox.files.write(file.filePath, file.content);
                 writtenPaths.push(file.filePath);
                 log.orchestrator(`[PROGRESSIVE] Written: ${file.filePath}`);
+                enqueueNodeEvent({
+                    type: "file_created",
+                    filePath: file.filePath,
+                    message: `Created ${file.filePath}`,
+                });
             } catch (error) {
                 log.orchestrator(`[PROGRESSIVE] Failed to write ${file.filePath}:`, error);
             }
         }
         return writtenPaths;
     };
-
-    yield { type: 'planning', message: 'Analyzing your request...' };
 
     // Track state for evals
     let capturedPlan: Plan | null = null;
@@ -208,15 +225,19 @@ export async function* streamOrchestrator(
             {
                 version: "v2",
                 configurable: {
-                    writeFiles: writeFilesToSandbox
+                    writeFiles: writeFilesToSandbox,
+                    streamCallback: enqueueNodeEvent,
                 }
             }
         );
 
         let files: FileContent[] = [];
-        const emittedWriteCompletes = new Set<string>();
 
         for await (const event of stream) {
+            while (pendingNodeEvents.length > 0) {
+                yield pendingNodeEvents.shift()!;
+            }
+
             if (event.event === "on_chain_end") {
                 // Planner completed
                 if (event.name === "planner" && event.data?.output?.plan) {
@@ -232,12 +253,6 @@ export async function* streamOrchestrator(
                         });
                         plannerSpan.end({ output: plan });
                     }
-
-                    yield {
-                        type: 'plan_complete',
-                        message: `Plan created: ${plan.tasks.length} files to generate`,
-                        plan
-                    };
                 }
 
                 // Codegen completed
@@ -257,22 +272,6 @@ export async function* streamOrchestrator(
                     }
 
                     yield { type: 'generating', message: `Generated ${files.length} files, ${commands.length} commands` };
-
-                    // Emit command execution events
-                    for (const cmd of commands) {
-                        yield { type: 'executing', message: `Running: ${cmd}` };
-                    }
-                }
-
-                // Writer completed
-                if (event.name === "writer" && event.data?.output?.writtenFiles) {
-                    const written = event.data.output.writtenFiles as string[];
-                    for (const filePath of written) {
-                        if (!emittedWriteCompletes.has(filePath)) {
-                            emittedWriteCompletes.add(filePath);
-                            yield { type: 'file_created', filePath, message: `Created ${filePath}` };
-                        }
-                    }
                 }
 
                 // Reviewer completed
@@ -291,21 +290,12 @@ export async function* streamOrchestrator(
                             level: result.status === 'success' ? 'DEFAULT' : 'WARNING',
                         });
                     }
-
-                    yield {
-                        type: 'review_complete',
-                        message: result.status === 'success'
-                            ? 'All tasks completed'
-                            : `Issues found: ${result.problems?.length || 0}`,
-                        reviewResult: result
-                    };
-
-                    // If retrying, emit retrying event
-                    if (result.status === 'issues' && event.data?.output?.retryCount === 1) {
-                        yield { type: 'retrying', message: 'Regenerating missing files...' };
-                    }
                 }
             }
+        }
+
+        while (pendingNodeEvents.length > 0) {
+            yield pendingNodeEvents.shift()!;
         }
 
         const generationTimeMs = Date.now() - startTime;
