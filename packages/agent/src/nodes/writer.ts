@@ -9,15 +9,21 @@ export function createWriterNode(sandbox: Sandbox) {
 
         if (!files || files.length === 0) {
             log.orchestrator('No files to write');
-            return { writtenFiles: [] };
+            return { writtenFiles: state.writtenFiles || [] };
         }
 
         log.orchestrator(`Writing ${files.length} files...`);
-        const writtenFiles: string[] = [];
+        const writtenSet = new Set(state.writtenFiles || []);
+        const writtenFiles: string[] = [...writtenSet];
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (!file) continue;
+
+            if (writtenSet.has(file.filePath)) {
+                log.writer(file.filePath, 'Skipping (already written)');
+                continue;
+            }
 
             const fileNum = i + 1;
             log.writer(file.filePath, `Writing [${fileNum}/${files.length}]`);
@@ -35,6 +41,7 @@ export function createWriterNode(sandbox: Sandbox) {
                 await sandbox.files.write(file.filePath, file.content);
 
                 log.writer(file.filePath, 'Done');
+                writtenSet.add(file.filePath);
                 writtenFiles.push(file.filePath);
 
                 config?.configurable?.streamCallback?.({ type: 'file_created', filePath: file.filePath, message: `Created ${file.filePath}` });
